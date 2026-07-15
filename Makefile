@@ -1,0 +1,32 @@
+.PHONY: help infra-up infra-down api-install api-dev api-test web-install web-dev dev
+
+help:
+	@echo "OpenSource AI Engineer — dev commands"
+	@echo "  make infra-up      Start Postgres + Redis + Qdrant (docker compose)"
+	@echo "  make infra-down    Stop infra"
+	@echo "  make api-install   Create venv + install API deps"
+	@echo "  make api-dev       Run the FastAPI server on :8000"
+	@echo "  make api-test      Run backend tests"
+	@echo "  make web-install   Install frontend deps"
+	@echo "  make web-dev       Run the Next.js dev server on :3000"
+
+infra-up:
+	docker compose -f infra/docker-compose.yml up -d
+
+infra-down:
+	docker compose -f infra/docker-compose.yml down
+
+api-install:
+	cd apps/api && python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+
+api-dev:
+	cd apps/api && . .venv/bin/activate && uvicorn app.main:app --reload --port 8000
+
+api-test:
+	cd apps/api && . .venv/bin/activate && PYTHONPATH=. pytest -q
+
+web-install:
+	cd apps/web && npm install
+
+web-dev:
+	cd apps/web && npm run dev

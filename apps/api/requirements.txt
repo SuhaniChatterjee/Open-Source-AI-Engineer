@@ -1,0 +1,16 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
+sqlalchemy==2.0.36
+psycopg[binary]==3.2.9
+qdrant-client==1.12.1
+httpx==0.28.1
+python-dotenv==1.0.1
+gitpython==3.1.43
+tenacity==9.0.0
+# Tree-sitter parsing (optional at runtime; parser falls back to a line-based
+# chunker if these fail to import/build). Pinned to the 0.23 ABI.
+tree-sitter==0.23.2
+tree-sitter-python==0.23.6
+tree-sitter-typescript==0.23.2
