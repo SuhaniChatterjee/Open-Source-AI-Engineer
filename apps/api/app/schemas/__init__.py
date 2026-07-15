@@ -39,7 +39,8 @@ class ProviderSettingsUpdate(BaseModel):
 
 
 class ProviderKeyUpdate(BaseModel):
-    provider: str = Field(..., pattern="^(openai)$")
+    # "github" stores a write token used only for publishing pull requests.
+    provider: str = Field(..., pattern="^(openai|github)$")
     api_key: str = Field(..., min_length=8)
 
 
@@ -152,11 +153,35 @@ class ContributionOut(BaseModel):
     provider: str | None = None
     reviewer_note: str | None = None
     error: str | None = None
+    publish_status: str = "none"
+    branch_name: str | None = None
+    pr_number: int | None = None
+    pr_url: str | None = None
+    pr_head_repo: str | None = None
+    publish_error: str | None = None
 
 
 class ContributionReview(BaseModel):
     approve: bool
     note: str | None = None
+
+
+class PublishPreviewOut(BaseModel):
+    branch_name: str
+    base: str
+    head: str
+    files: list[str]
+    commit_message: str
+    pr_title: str
+    pr_body: str
+    head_repo: str
+    token_configured: bool
+
+
+class PublishRequest(BaseModel):
+    confirm: bool
+    # Optional "owner/name" of the user's fork to push to and open the PR from.
+    head_repo: str | None = None
 
 
 class CitationOut(BaseModel):

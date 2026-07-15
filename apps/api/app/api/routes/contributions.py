@@ -8,9 +8,16 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
+from dataclasses import asdict
+
 from app.models import ContributionTask, Issue, Repository, User
-from app.schemas import ContributionOut, ContributionReview
-from app.services import contribution_service
+from app.schemas import (
+    ContributionOut,
+    ContributionReview,
+    PublishPreviewOut,
+    PublishRequest,
+)
+from app.services import contribution_service, github_writer
 
 router = APIRouter(prefix="/repositories/{repo_id}", tags=["contributions"])
 
@@ -54,6 +61,12 @@ def _to_out(db: Session, task: ContributionTask) -> dict:
         "provider": task.provider,
         "reviewer_note": task.reviewer_note,
         "error": task.error,
+        "publish_status": task.publish_status,
+        "branch_name": task.branch_name,
+        "pr_number": task.pr_number,
+        "pr_url": task.pr_url,
+        "pr_head_repo": task.pr_head_repo,
+        "publish_error": task.publish_error,
     }
 
 
@@ -128,4 +141,54 @@ def review_contribution(
         contribution_service.set_review(db, task, payload.approve, payload.note)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _to_out(db, task)
+
+
+@router.get("/contributions/{task_id}/publish-preview", response_model=PublishPreviewOut)
+def publish_preview(
+    repo_id: str,
+    task_id: str,
+    head_repo: str | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Dry run: show exactly what would be pushed. No side effects."""
+    task = _task_or_404(db, repo_id, task_id, user)
+    if task.status != "approved":
+        raise HTTPException(
+            status_code=409, detail="Only an approved draft can be published"
+        )
+    return asdict(github_writer.preview(db, user, task, head_repo))
+
+
+@router.post("/contributions/{task_id}/publish", response_model=ContributionOut, status_code=202)
+def publish_contribution(
+    repo_id: str,
+    task_id: str,
+    payload: PublishRequest,
+    background: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Perform the real branch push + draft PR. Requires an approved draft, an
+    explicit confirm flag, and a configured write token."""
+    task = _task_or_404(db, repo_id, task_id, user)
+    if task.status != "approved":
+        raise HTTPException(
+            status_code=409, detail="Only an approved draft can be published"
+        )
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="Explicit confirmation is required")
+    if task.publish_status in ("publishing", "published"):
+        raise HTTPException(status_code=409, detail=f"Already {task.publish_status}")
+    if github_writer.resolve_write_token(db, user) is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No GitHub write token configured. Add one in Settings first.",
+        )
+
+    task.publish_status = "publishing"
+    task.publish_error = None
+    db.commit()
+    background.add_task(github_writer.publish, task.id, payload.head_repo)
     return _to_out(db, task)

@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import type { Contribution } from "@/lib/types";
+import type { Contribution, PublishPreview } from "@/lib/types";
 import { DiffView } from "./DiffView";
 
 const IN_PROGRESS = new Set(["queued", "planning", "generating"]);
+const PUBLISHING = new Set(["publishing"]);
 
 function ConfidenceBar({ score }: { score: number }) {
   const color =
@@ -33,18 +34,44 @@ export function ContributionWorkspace({
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [reviewing, setReviewing] = useState(false);
+  const [preview, setPreview] = useState<PublishPreview | null>(null);
+  const [headRepo, setHeadRepo] = useState("");
+  const [publishing, setPublishing] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function refresh() {
     try {
       const t = await api.getContribution(repoId, taskId);
       setTask(t);
-      if (!IN_PROGRESS.has(t.status) && timer.current) {
+      const settled = !IN_PROGRESS.has(t.status) && !PUBLISHING.has(t.publish_status);
+      if (settled && timer.current) {
         clearInterval(timer.current);
         timer.current = null;
       }
     } catch (e) {
       setError((e as Error).message);
+    }
+  }
+
+  async function loadPreview() {
+    try {
+      setPreview(await api.publishPreview(repoId, taskId, headRepo || undefined));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function publish() {
+    setPublishing(true);
+    setError(null);
+    try {
+      await api.publishContribution(repoId, taskId, headRepo || undefined);
+      if (!timer.current) timer.current = setInterval(refresh, 1500);
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -251,22 +278,104 @@ export function ContributionWorkspace({
                 never pushes without explicit approval.
               </p>
             </div>
-          ) : (
-            <div
-              className={`card p-4 ${
-                task.status === "approved"
-                  ? "border-green-500/40"
-                  : "border-red-500/40"
-              }`}
-            >
-              <span
-                className={
-                  task.status === "approved" ? "text-green-400" : "text-red-300"
-                }
-              >
-                Draft {task.status}
+          ) : task.status === "rejected" ? (
+            <div className="card p-4 border-red-500/40">
+              <span className="text-red-300">
+                Draft rejected
                 {task.reviewer_note ? `: “${task.reviewer_note}”` : ""}
               </span>
+            </div>
+          ) : (
+            // approved -> publish path
+            <div className="card p-4 border-green-500/40 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="badge bg-green-500/15 text-green-400">approved</span>
+                <span className="text-sm font-medium">Publish to GitHub</span>
+              </div>
+
+              {task.publish_status === "published" && task.pr_url ? (
+                <div className="text-sm">
+                  <span className="text-green-400">Draft PR opened:</span>{" "}
+                  <a
+                    href={task.pr_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-accent hover:underline"
+                  >
+                    {task.pr_url}
+                  </a>
+                  <div className="text-xs text-muted mt-1">
+                    Branch <code>{task.branch_name}</code> on{" "}
+                    <code>{task.pr_head_repo}</code>
+                  </div>
+                </div>
+              ) : task.publish_status === "publishing" ? (
+                <div className="text-sm text-muted animate-pulse">
+                  Pushing branch and opening a draft PR…
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {task.publish_status === "failed" && (
+                    <div className="text-sm text-red-300">
+                      Publish failed: {task.publish_error}
+                    </div>
+                  )}
+                  <input
+                    className="input"
+                    placeholder="your-fork-owner/repo (optional — pushes a branch there and PRs from it)"
+                    value={headRepo}
+                    onChange={(e) => setHeadRepo(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={loadPreview} className="btn-ghost">
+                      Preview
+                    </button>
+                    <button
+                      onClick={publish}
+                      className="btn-primary"
+                      disabled={publishing}
+                    >
+                      {publishing ? "Publishing…" : "Open draft PR on GitHub"}
+                    </button>
+                  </div>
+
+                  {preview && (
+                    <div className="rounded-lg bg-bg border border-border p-3 text-xs space-y-1">
+                      <div>
+                        <span className="text-muted">branch:</span>{" "}
+                        <code className="text-accent">{preview.branch_name}</code>
+                      </div>
+                      <div>
+                        <span className="text-muted">into:</span>{" "}
+                        <code>{preview.head_repo}</code>{" "}
+                        <span className="text-muted">→ PR base</span>{" "}
+                        <code>{preview.base}</code>
+                      </div>
+                      <div>
+                        <span className="text-muted">files:</span>{" "}
+                        {preview.files.join(", ")}
+                      </div>
+                      <div
+                        className={
+                          preview.token_configured
+                            ? "text-green-400"
+                            : "text-yellow-400"
+                        }
+                      >
+                        {preview.token_configured
+                          ? "GitHub token configured — ready to publish."
+                          : "No GitHub token configured — add one in Settings to publish."}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted">
+                    This opens a real <strong>draft</strong> pull request under your
+                    account. It requires a GitHub token (Settings) and only runs on
+                    your explicit click.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </>

@@ -178,6 +178,15 @@ class ContributionTask(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # --- publish (GitHub write path; only after approval) ---
+    # none | publishing | published | failed
+    publish_status: Mapped[str] = mapped_column(String(32), default="none")
+    branch_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pr_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pr_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    pr_head_repo: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    publish_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     issue: Mapped["Issue"] = relationship(back_populates="contributions")
 
 

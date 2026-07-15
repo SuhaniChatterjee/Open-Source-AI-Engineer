@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [llm, setLlm] = useState("mock");
   const [embed, setEmbed] = useState("mock");
   const [key, setKey] = useState("");
+  const [ghKey, setGhKey] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -55,6 +56,18 @@ export default function SettingsPage() {
       setStatus(await api.setProviderKey("openai", key));
       setKey("");
       setMsg("OpenAI key saved (encrypted).");
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+
+  async function saveGhKey() {
+    setErr(null);
+    setMsg(null);
+    try {
+      setStatus(await api.setProviderKey("github", ghKey));
+      setGhKey("");
+      setMsg("GitHub token saved (encrypted).");
     } catch (e) {
       setErr((e as Error).message);
     }
@@ -118,9 +131,12 @@ export default function SettingsPage() {
       <div className="card p-5 space-y-4">
         <h2 className="font-medium">API keys</h2>
         <div className="text-sm text-muted">
-          {status && Object.keys(status.configured_keys).length > 0 ? (
+          {status &&
+          Object.keys(status.configured_keys).filter((p) => p !== "github").length > 0 ? (
             <ul className="space-y-1">
-              {Object.entries(status.configured_keys).map(([p, hint]) => (
+              {Object.entries(status.configured_keys)
+                .filter(([p]) => p !== "github")
+                .map(([p, hint]) => (
                 <li key={p} className="flex items-center gap-3">
                   <span className="badge bg-panel2">{p}</span>
                   <code className="font-mono">{hint}</code>
@@ -152,6 +168,42 @@ export default function SettingsPage() {
         <p className="text-xs text-muted">
           Keys are encrypted at rest and never returned to the browser.
         </p>
+      </div>
+
+      <div className="card p-5 space-y-4">
+        <h2 className="font-medium">GitHub publishing token</h2>
+        <p className="text-sm text-muted">
+          Required only to publish a pull request. Use a fine-grained token with
+          Contents + Pull requests write access on your fork. Stored encrypted.
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="password"
+            className="input"
+            placeholder="GitHub token (github_pat_… or ghp_…)"
+            value={ghKey}
+            onChange={(e) => setGhKey(e.target.value)}
+          />
+          <button
+            onClick={saveGhKey}
+            className="btn-ghost whitespace-nowrap"
+            disabled={ghKey.length < 8}
+          >
+            Save token
+          </button>
+        </div>
+        {status?.configured_keys?.github && (
+          <div className="text-sm text-muted flex items-center gap-3">
+            <span className="badge bg-green-500/15 text-green-400">configured</span>
+            <code className="font-mono">{status.configured_keys.github}</code>
+            <button
+              onClick={() => removeKey("github")}
+              className="text-red-300 text-xs hover:underline"
+            >
+              remove
+            </button>
+          </div>
+        )}
       </div>
 
       {msg && <div className="text-green-400 text-sm">{msg}</div>}

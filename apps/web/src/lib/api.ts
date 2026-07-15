@@ -7,6 +7,7 @@ import type {
   Issue,
   IssueDetail,
   ProviderStatus,
+  PublishPreview,
   Repository,
   User,
 } from "./types";
@@ -115,6 +116,20 @@ export const api = {
     req<Contribution>(`/repositories/${repoId}/contributions/${taskId}/review`, {
       method: "POST",
       body: JSON.stringify({ approve, note: note ?? null }),
+    }),
+  publishPreview: (repoId: string, taskId: string, headRepo?: string) =>
+    req<PublishPreview>(
+      `/repositories/${repoId}/contributions/${taskId}/publish-preview` +
+        (headRepo ? `?head_repo=${encodeURIComponent(headRepo)}` : "")
+    ),
+  publishContribution: (
+    repoId: string,
+    taskId: string,
+    headRepo?: string
+  ) =>
+    req<Contribution>(`/repositories/${repoId}/contributions/${taskId}/publish`, {
+      method: "POST",
+      body: JSON.stringify({ confirm: true, head_repo: headRepo ?? null }),
     }),
 
   chat: (id: string, question: string) =>

@@ -113,6 +113,24 @@ export interface Contribution {
   provider: string | null;
   reviewer_note: string | null;
   error: string | null;
+  publish_status: string;
+  branch_name: string | null;
+  pr_number: number | null;
+  pr_url: string | null;
+  pr_head_repo: string | null;
+  publish_error: string | null;
+}
+
+export interface PublishPreview {
+  branch_name: string;
+  base: string;
+  head: string;
+  files: string[];
+  commit_message: string;
+  pr_title: string;
+  pr_body: string;
+  head_repo: string;
+  token_configured: boolean;
 }
 
 export interface ArchModule {
