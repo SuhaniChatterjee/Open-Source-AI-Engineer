@@ -1,18 +1,30 @@
 import type {
   Architecture,
+  AuthConfig,
   ChatResponse,
   IndexJob,
+  ProviderStatus,
   Repository,
+  User,
 } from "./types";
 
 const BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000/api/v1";
+
+export const GITHUB_LOGIN_URL = `${BASE}/auth/github/login`;
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     cache: "no-store",
+    credentials: "include", // send/receive the session cookie
   });
   if (!res.ok) {
     let detail = res.statusText;
@@ -21,13 +33,44 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* ignore */
     }
-    throw new Error(detail);
+    throw new ApiError(res.status, detail);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
 export const api = {
+  // --- auth ---
+  authConfig: () => req<AuthConfig>("/auth/config"),
+  me: () => req<User>("/auth/me"),
+  devLogin: (login: string) =>
+    req<User>("/auth/dev-login", {
+      method: "POST",
+      body: JSON.stringify({ login }),
+    }),
+  githubCallback: (code: string, state: string) =>
+    req<User>("/auth/github/callback", {
+      method: "POST",
+      body: JSON.stringify({ code, state }),
+    }),
+  logout: () => req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+
+  // --- providers ---
+  getProviders: () => req<ProviderStatus>("/providers"),
+  updateProviderSettings: (llm_provider: string, embedding_provider: string) =>
+    req<ProviderStatus>("/providers/settings", {
+      method: "PUT",
+      body: JSON.stringify({ llm_provider, embedding_provider }),
+    }),
+  setProviderKey: (provider: string, api_key: string) =>
+    req<ProviderStatus>("/providers/keys", {
+      method: "PUT",
+      body: JSON.stringify({ provider, api_key }),
+    }),
+  deleteProviderKey: (provider: string) =>
+    req<ProviderStatus>(`/providers/keys/${provider}`, { method: "DELETE" }),
+
+  // --- repos ---
   listRepos: () => req<Repository[]>("/repositories"),
   addRepo: (repo: string) =>
     req<Repository>("/repositories", {

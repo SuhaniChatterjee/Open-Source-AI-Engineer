@@ -6,8 +6,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.db.session import get_db
-from app.models import IndexJob, Repository
+from app.models import IndexJob, Repository, User
 from app.schemas import IndexJobOut, RepoCreate, RepoOut
 from app.services.indexing_service import run_indexing
 from app.services.repo_service import normalize_repo
@@ -16,15 +17,29 @@ from app.services.vectorstore import get_vector_store
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
 
+def _owned(db: Session, repo_id: str, user: User) -> Repository:
+    repo = db.get(Repository, repo_id)
+    if not repo or repo.owner_id != user.id:
+        raise HTTPException(status_code=404, detail="Repository not found")
+    return repo
+
+
 @router.get("", response_model=list[RepoOut])
-def list_repositories(db: Session = Depends(get_db)):
-    return db.scalars(select(Repository).order_by(Repository.created_at.desc())).all()
+def list_repositories(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return db.scalars(
+        select(Repository)
+        .where(Repository.owner_id == user.id)
+        .order_by(Repository.created_at.desc())
+    ).all()
 
 
 @router.post("", response_model=RepoOut, status_code=201)
 def add_repository(
     payload: RepoCreate,
     background: BackgroundTasks,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
@@ -32,11 +47,17 @@ def add_repository(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    existing = db.scalar(select(Repository).where(Repository.full_name == full_name))
+    existing = db.scalar(
+        select(Repository).where(
+            Repository.full_name == full_name, Repository.owner_id == user.id
+        )
+    )
     if existing and existing.status not in ("failed",):
         return existing
 
-    repo = existing or Repository(full_name=full_name, clone_url=clone_url)
+    repo = existing or Repository(
+        full_name=full_name, clone_url=clone_url, owner_id=user.id
+    )
     repo.clone_url = clone_url
     repo.status = "pending"
     repo.error = None
@@ -54,15 +75,21 @@ def add_repository(
 
 
 @router.get("/{repo_id}", response_model=RepoOut)
-def get_repository(repo_id: str, db: Session = Depends(get_db)):
-    repo = db.get(Repository, repo_id)
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
-    return repo
+def get_repository(
+    repo_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _owned(db, repo_id, user)
 
 
 @router.get("/{repo_id}/status", response_model=IndexJobOut)
-def get_index_status(repo_id: str, db: Session = Depends(get_db)):
+def get_index_status(
+    repo_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _owned(db, repo_id, user)
     job = db.scalar(
         select(IndexJob)
         .where(IndexJob.repository_id == repo_id)
@@ -74,10 +101,12 @@ def get_index_status(repo_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{repo_id}/architecture")
-def get_architecture(repo_id: str, db: Session = Depends(get_db)):
-    repo = db.get(Repository, repo_id)
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
+def get_architecture(
+    repo_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _owned(db, repo_id, user)
     job = db.scalar(
         select(IndexJob)
         .where(IndexJob.repository_id == repo_id, IndexJob.status == "succeeded")
@@ -91,10 +120,12 @@ def get_architecture(repo_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{repo_id}", status_code=204)
-def delete_repository(repo_id: str, db: Session = Depends(get_db)):
-    repo = db.get(Repository, repo_id)
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
+def delete_repository(
+    repo_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    repo = _owned(db, repo_id, user)
     get_vector_store().delete_repo(repo_id)
     db.delete(repo)
     db.commit()

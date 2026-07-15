@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import type { Architecture, IndexJob, Repository } from "@/lib/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ArchitectureMap } from "@/components/ArchitectureMap";
@@ -12,6 +14,8 @@ type Tab = "overview" | "architecture" | "chat";
 
 export default function RepoPage({ params }: { params: { id: string } }) {
   const { id } = params;
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [repo, setRepo] = useState<Repository | null>(null);
   const [job, setJob] = useState<IndexJob | null>(null);
   const [arch, setArch] = useState<Architecture | null>(null);
@@ -36,9 +40,13 @@ export default function RepoPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => {
-    refresh();
+    if (!authLoading && !user) router.replace("/login");
+  }, [authLoading, user, router]);
+
+  useEffect(() => {
+    if (user) refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
     if (!repo || !ACTIVE.has(repo.status)) return;

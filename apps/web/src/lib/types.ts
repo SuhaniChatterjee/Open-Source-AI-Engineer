@@ -1,3 +1,24 @@
+export interface User {
+  id: string;
+  login: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  llm_provider: string;
+  embedding_provider: string;
+}
+
+export interface AuthConfig {
+  github_enabled: boolean;
+  dev_login_enabled: boolean;
+}
+
+export interface ProviderStatus {
+  llm_provider: string;
+  embedding_provider: string;
+  configured_keys: Record<string, string>;
+}
+
 export interface Repository {
   id: string;
   full_name: string;

@@ -29,6 +29,26 @@ class Settings(BaseSettings):
     # --- Redis (reserved for background workers; not required for the slice) ---
     redis_url: str = "redis://localhost:6379/0"
 
+    # --- Auth / sessions ---
+    frontend_url: str = "http://localhost:3000"
+    # Signs session cookies. OVERRIDE in production.
+    session_secret: str = "dev-insecure-session-secret-change-me"
+    session_cookie_name: str = "osae_session"
+    session_max_age_seconds: int = 60 * 60 * 24 * 14  # 14 days
+    session_cookie_secure: bool = False  # True behind HTTPS in production
+    # Fernet key (base64, 32 bytes). If blank, one is derived from session_secret
+    # for local dev. OVERRIDE with a real key in production.
+    encryption_key: str | None = None
+
+    # --- GitHub OAuth (user login). Register an OAuth App to fill these in. ---
+    github_client_id: str | None = None
+    github_client_secret: str | None = None
+    github_oauth_scope: str = "read:user user:email"
+    github_api_url: str = "https://api.github.com"
+    # When GitHub OAuth is not configured, allow a local dev login so the app
+    # stays runnable with zero credentials (mirrors the mock-provider fallback).
+    allow_dev_login: bool = True
+
     # --- Vector store (Qdrant) ---
     # If Qdrant is unreachable, the vector store falls back to in-memory mode.
     qdrant_url: str = "http://localhost:6333"

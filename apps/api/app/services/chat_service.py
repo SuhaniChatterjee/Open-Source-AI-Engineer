@@ -9,8 +9,11 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from sqlalchemy.orm import Session
+
+from app.models import User
 from app.providers.base import ChatMessage
-from app.providers.registry import get_embedding_provider, get_llm_provider
+from app.providers.registry import resolve_embedding_provider, resolve_llm_provider
 from app.services.vectorstore import SearchHit, get_vector_store
 
 _SYSTEM_PROMPT = """You are OpenSource AI Engineer, an expert guide to a specific \
@@ -52,9 +55,11 @@ def _format_context(hits: list[SearchHit]) -> str:
     return "CONTEXT:\n\n" + "\n\n---\n\n".join(blocks)
 
 
-def answer_question(repo_id: str, question: str, top_k: int = 8) -> ChatResult:
-    embedder = get_embedding_provider()
-    llm = get_llm_provider()
+def answer_question(
+    db: Session, user: User | None, repo_id: str, question: str, top_k: int = 8
+) -> ChatResult:
+    embedder = resolve_embedding_provider(db, user)
+    llm = resolve_llm_provider(db, user)
     store = get_vector_store()
 
     query_vec = embedder.embed([question])[0]

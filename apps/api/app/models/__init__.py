@@ -7,15 +7,53 @@ index -> chat -> architecture-map flow.
 """
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    # GitHub numeric id as string; null for local dev-login users.
+    github_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    login: Mapped[str] = mapped_column(String(255), index=True)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Which provider this user wants for chat/embeddings: mock | openai | ollama
+    llm_provider: Mapped[str] = mapped_column(String(32), default="mock")
+    embedding_provider: Mapped[str] = mapped_column(String(32), default="mock")
+
+    repositories: Mapped[list["Repository"]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan"
+    )
+    credentials: Mapped[list["ProviderCredential"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class ProviderCredential(Base):
+    __tablename__ = "provider_credentials"
+    __table_args__ = (UniqueConstraint("user_id", "provider", name="uq_user_provider"),)
+
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32))  # openai | ollama | ...
+    encrypted_key: Mapped[str] = mapped_column(Text)  # Fernet ciphertext
+    hint: Mapped[str] = mapped_column(String(64))  # masked, safe to display
+
+    user: Mapped["User"] = relationship(back_populates="credentials")
+
+
 class Repository(Base):
     __tablename__ = "repositories"
 
+    owner_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     # e.g. "fastapi/fastapi"
     full_name: Mapped[str] = mapped_column(String(255), index=True)
     clone_url: Mapped[str] = mapped_column(String(512))
@@ -28,6 +66,7 @@ class Repository(Base):
     chunk_count: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    owner: Mapped["User | None"] = relationship(back_populates="repositories")
     jobs: Mapped[list["IndexJob"]] = relationship(
         back_populates="repository", cascade="all, delete-orphan"
     )
@@ -82,4 +121,11 @@ class Message(Base):
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
 
 
-__all__ = ["Repository", "IndexJob", "Conversation", "Message"]
+__all__ = [
+    "User",
+    "ProviderCredential",
+    "Repository",
+    "IndexJob",
+    "Conversation",
+    "Message",
+]

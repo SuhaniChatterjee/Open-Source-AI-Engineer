@@ -6,6 +6,49 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
+class UserOut(BaseModel):
+    id: str
+    login: str
+    name: str | None = None
+    email: str | None = None
+    avatar_url: str | None = None
+    llm_provider: str
+    embedding_provider: str
+
+    class Config:
+        from_attributes = True
+
+
+class AuthConfig(BaseModel):
+    github_enabled: bool
+    dev_login_enabled: bool
+
+
+class DevLoginRequest(BaseModel):
+    login: str = Field("dev", min_length=1, max_length=64)
+
+
+class OAuthCallbackRequest(BaseModel):
+    code: str
+    state: str
+
+
+class ProviderSettingsUpdate(BaseModel):
+    llm_provider: str = Field(..., pattern="^(mock|openai|ollama)$")
+    embedding_provider: str = Field(..., pattern="^(mock|openai|ollama)$")
+
+
+class ProviderKeyUpdate(BaseModel):
+    provider: str = Field(..., pattern="^(openai)$")
+    api_key: str = Field(..., min_length=8)
+
+
+class ProviderStatus(BaseModel):
+    llm_provider: str
+    embedding_provider: str
+    configured_keys: dict[str, str]  # provider -> masked hint
+
+
 class RepoCreate(BaseModel):
     # Accept "owner/name" or a full GitHub URL.
     repo: str = Field(..., examples=["tiangolo/fastapi"])

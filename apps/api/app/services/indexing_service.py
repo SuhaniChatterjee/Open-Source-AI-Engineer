@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.indexing import architecture, cloner, parser
-from app.models import IndexJob, Repository
-from app.providers.registry import get_embedding_provider
+from app.models import IndexJob, Repository, User
+from app.providers.registry import resolve_embedding_provider
 from app.services.vectorstore import get_vector_store
 
 logger = logging.getLogger(__name__)
@@ -95,9 +95,10 @@ def _run(db: Session, repo_id: str, job_id: str) -> None:
     for rel, text in sources.items():
         all_chunks.extend(parser.chunk_file(rel, text))
 
-    # 4. Embed + upsert
+    # 4. Embed + upsert (using the repo owner's configured provider)
     _set(db, repo, job, stage="embedding", progress=55)
-    embedder = get_embedding_provider()
+    owner = db.get(User, repo.owner_id) if repo.owner_id else None
+    embedder = resolve_embedding_provider(db, owner)
     store = get_vector_store()
     store.ensure_collection(repo_id, embedder.dim)
 

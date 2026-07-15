@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import type { Repository } from "@/lib/types";
 import { StatusBadge } from "@/components/StatusBadge";
 
 const ACTIVE = new Set(["pending", "cloning", "parsing", "embedding", "mapping"]);
 
 export default function Dashboard() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [repos, setRepos] = useState<Repository[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,8 +30,12 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    refresh();
-  }, []);
+    if (!authLoading && !user) router.replace("/login");
+  }, [authLoading, user, router]);
+
+  useEffect(() => {
+    if (user) refresh();
+  }, [user]);
 
   // Poll while any repo is still indexing.
   useEffect(() => {
@@ -56,6 +64,9 @@ export default function Dashboard() {
     await api.deleteRepo(id);
     refresh();
   }
+
+  if (authLoading || !user)
+    return <div className="text-muted">Loading…</div>;
 
   return (
     <div className="space-y-8">
