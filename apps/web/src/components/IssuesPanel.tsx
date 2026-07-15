@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Issue, IssueDetail } from "@/lib/types";
+import { ContributionWorkspace } from "./ContributionWorkspace";
 
 const LEVEL_STYLE: Record<string, string> = {
   easy: "bg-green-500/15 text-green-400",
@@ -24,8 +25,10 @@ function Suitability({ value }: { value: number | null }) {
 export function IssuesPanel({ repoId }: { repoId: string }) {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [detail, setDetail] = useState<IssueDetail | null>(null);
+  const [contribTaskId, setContribTaskId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [analyzing, setAnalyzing] = useState<number | null>(null);
+  const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -68,10 +71,25 @@ export function IssuesPanel({ repoId }: { repoId: string }) {
 
   async function open(issue: Issue) {
     setError(null);
+    setContribTaskId(null);
     if (issue.analysis_status === "analyzed") {
       setDetail(await api.getIssue(repoId, issue.github_number));
     } else {
       await analyze(issue.github_number);
+    }
+  }
+
+  async function draftContribution() {
+    if (!detail) return;
+    setDrafting(true);
+    setError(null);
+    try {
+      const task = await api.startContribution(repoId, detail.github_number);
+      setContribTaskId(task.id);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDrafting(false);
     }
   }
 
@@ -139,7 +157,15 @@ export function IssuesPanel({ repoId }: { repoId: string }) {
       </div>
 
       <div>
-        {detail ? (
+        {contribTaskId ? (
+          <div className="max-h-[68vh] overflow-y-auto pr-1">
+            <ContributionWorkspace
+              repoId={repoId}
+              taskId={contribTaskId}
+              onBack={() => setContribTaskId(null)}
+            />
+          </div>
+        ) : detail ? (
           <div className="card p-4 space-y-4 max-h-[68vh] overflow-y-auto">
             <div>
               <div className="flex items-center gap-2">
@@ -221,6 +247,21 @@ export function IssuesPanel({ repoId }: { repoId: string }) {
                 </ul>
               </div>
             )}
+
+            <div className="border-t border-border pt-3">
+              <button
+                onClick={draftContribution}
+                className="btn-primary w-full justify-center"
+                disabled={drafting}
+              >
+                {drafting ? "Starting…" : "Draft a contribution with AI"}
+              </button>
+              <p className="text-xs text-muted mt-2">
+                The AI engineer will plan a change, propose diffs, and score its
+                confidence. Low-confidence issues get guidance instead of a draft.
+                Nothing is pushed to GitHub without your approval.
+              </p>
+            </div>
 
             <p className="text-xs text-muted border-t border-border pt-2">
               Analyzed with {detail.analysis_provider ?? "—"}. Heuristic estimates —

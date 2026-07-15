@@ -129,6 +129,56 @@ class Issue(Base):
     analysis_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     repository: Mapped["Repository"] = relationship(back_populates="issues")
+    contributions: Mapped[list["ContributionTask"]] = relationship(
+        back_populates="issue", cascade="all, delete-orphan"
+    )
+
+
+class ContributionTask(Base):
+    """An AI-drafted attempt to solve an issue. Never pushed to GitHub without
+    explicit human approval; the MVP stops at an approved draft (the GitHub App
+    write path is a later phase — see docs/GitHub-App-Design.md)."""
+
+    __tablename__ = "contribution_tasks"
+
+    repository_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    issue_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("issues.id", ondelete="CASCADE"), index=True
+    )
+    owner_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+
+    # queued | planning | generating | ready_for_review | needs_guidance
+    #   | approved | rejected | failed
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(32), nullable=True)  # docs|test|bug|feature|other
+    is_safe_category: Mapped[bool] = mapped_column(default=False)
+
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    plan: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list[str]
+    # JSON: list of {path, action, original_content, new_content, diff, note}
+    proposed_changes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    test_plan: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risks: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list[str]
+
+    confidence_score: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0..100
+    confidence_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # When confidence is too low we withhold a draft and give guidance instead.
+    guidance: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    commit_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pr_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    pr_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewer_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    issue: Mapped["Issue"] = relationship(back_populates="contributions")
 
 
 class Conversation(Base):
@@ -167,6 +217,7 @@ __all__ = [
     "Repository",
     "IndexJob",
     "Issue",
+    "ContributionTask",
     "Conversation",
     "Message",
 ]

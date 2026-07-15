@@ -120,6 +120,45 @@ class IssueSyncResult(BaseModel):
     synced: int
 
 
+class ProposedChange(BaseModel):
+    path: str
+    action: str
+    original_content: str
+    new_content: str
+    diff: str
+    note: str | None = None
+
+
+class ContributionOut(BaseModel):
+    id: str
+    repository_id: str
+    issue_id: str
+    issue_number: int | None = None
+    status: str
+    stage: str | None = None
+    category: str | None = None
+    is_safe_category: bool
+    summary: str | None = None
+    plan: list[str] = []
+    proposed_changes: list[ProposedChange] = []
+    test_plan: str | None = None
+    risks: list[str] = []
+    confidence_score: int | None = None
+    confidence_rationale: str | None = None
+    guidance: str | None = None
+    commit_message: str | None = None
+    pr_title: str | None = None
+    pr_body: str | None = None
+    provider: str | None = None
+    reviewer_note: str | None = None
+    error: str | None = None
+
+
+class ContributionReview(BaseModel):
+    approve: bool
+    note: str | None = None
+
+
 class CitationOut(BaseModel):
     path: str
     start_line: int

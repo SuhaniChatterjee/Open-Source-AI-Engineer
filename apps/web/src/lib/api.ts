@@ -2,6 +2,7 @@ import type {
   Architecture,
   AuthConfig,
   ChatResponse,
+  Contribution,
   IndexJob,
   Issue,
   IssueDetail,
@@ -96,6 +97,24 @@ export const api = {
   analyzeIssue: (repoId: string, number: number) =>
     req<IssueDetail>(`/repositories/${repoId}/issues/${number}/analyze`, {
       method: "POST",
+    }),
+
+  // --- contributions ---
+  startContribution: (repoId: string, number: number) =>
+    req<Contribution>(`/repositories/${repoId}/issues/${number}/contribute`, {
+      method: "POST",
+    }),
+  getContribution: (repoId: string, taskId: string) =>
+    req<Contribution>(`/repositories/${repoId}/contributions/${taskId}`),
+  reviewContribution: (
+    repoId: string,
+    taskId: string,
+    approve: boolean,
+    note?: string
+  ) =>
+    req<Contribution>(`/repositories/${repoId}/contributions/${taskId}/review`, {
+      method: "POST",
+      body: JSON.stringify({ approve, note: note ?? null }),
     }),
 
   chat: (id: string, question: string) =>

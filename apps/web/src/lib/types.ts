@@ -81,6 +81,40 @@ export interface IssueDetail extends Issue {
   analysis_provider: string | null;
 }
 
+export interface ProposedChange {
+  path: string;
+  action: string;
+  original_content: string;
+  new_content: string;
+  diff: string;
+  note: string | null;
+}
+
+export interface Contribution {
+  id: string;
+  repository_id: string;
+  issue_id: string;
+  issue_number: number | null;
+  status: string;
+  stage: string | null;
+  category: string | null;
+  is_safe_category: boolean;
+  summary: string | null;
+  plan: string[];
+  proposed_changes: ProposedChange[];
+  test_plan: string | null;
+  risks: string[];
+  confidence_score: number | null;
+  confidence_rationale: string | null;
+  guidance: string | null;
+  commit_message: string | null;
+  pr_title: string | null;
+  pr_body: string | null;
+  provider: string | null;
+  reviewer_note: string | null;
+  error: string | null;
+}
+
 export interface ArchModule {
   name: string;
   file_count: number;
