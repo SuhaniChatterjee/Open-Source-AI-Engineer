@@ -82,6 +82,44 @@ class IndexJobOut(BaseModel):
         from_attributes = True
 
 
+class AffectedFile(BaseModel):
+    path: str
+    start_line: int
+    end_line: int
+    kind: str
+    score: float
+
+
+class IssueOut(BaseModel):
+    id: str
+    github_number: int
+    title: str
+    state: str
+    labels: list[str] = []
+    author: str | None = None
+    comments_count: int
+    html_url: str
+    github_updated_at: str | None = None
+    analysis_status: str
+    complexity_score: int | None = None
+    complexity_level: str | None = None
+    estimated_hours: str | None = None
+    suitability_score: int | None = None
+
+
+class IssueDetailOut(IssueOut):
+    body: str | None = None
+    affected_files: list[AffectedFile] = []
+    required_knowledge: list[str] = []
+    strategy: str | None = None
+    risks: list[str] = []
+    analysis_provider: str | None = None
+
+
+class IssueSyncResult(BaseModel):
+    synced: int
+
+
 class CitationOut(BaseModel):
     path: str
     start_line: int

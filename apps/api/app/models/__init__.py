@@ -73,6 +73,9 @@ class Repository(Base):
     conversations: Mapped[list["Conversation"]] = relationship(
         back_populates="repository", cascade="all, delete-orphan"
     )
+    issues: Mapped[list["Issue"]] = relationship(
+        back_populates="repository", cascade="all, delete-orphan"
+    )
 
 
 class IndexJob(Base):
@@ -89,6 +92,43 @@ class IndexJob(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     repository: Mapped["Repository"] = relationship(back_populates="jobs")
+
+
+class Issue(Base):
+    __tablename__ = "issues"
+    __table_args__ = (
+        UniqueConstraint("repository_id", "github_number", name="uq_repo_issue"),
+    )
+
+    repository_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    github_number: Mapped[int] = mapped_column(Integer, index=True)
+    title: Mapped[str] = mapped_column(String(512))
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[str] = mapped_column(String(16), default="open")
+    labels: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list[str]
+    author: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    comments_count: Mapped[int] = mapped_column(Integer, default=0)
+    html_url: Mapped[str] = mapped_column(String(512))
+    github_created_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    github_updated_at: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # --- analysis (populated by analyze; null until run) ---
+    # not_analyzed | analyzing | analyzed | failed
+    analysis_status: Mapped[str] = mapped_column(String(32), default="not_analyzed")
+    complexity_score: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1..10
+    complexity_level: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    estimated_hours: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    suitability_score: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 0..100
+    # JSON: list of {path, start_line, end_line, kind, score}
+    affected_files: Mapped[str | None] = mapped_column(Text, nullable=True)
+    required_knowledge: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list[str]
+    strategy: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risks: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list[str]
+    analysis_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    repository: Mapped["Repository"] = relationship(back_populates="issues")
 
 
 class Conversation(Base):
@@ -126,6 +166,7 @@ __all__ = [
     "ProviderCredential",
     "Repository",
     "IndexJob",
+    "Issue",
     "Conversation",
     "Message",
 ]

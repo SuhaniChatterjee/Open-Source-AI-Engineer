@@ -8,9 +8,10 @@ import type { Architecture, IndexJob, Repository } from "@/lib/types";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ArchitectureMap } from "@/components/ArchitectureMap";
 import { ChatPanel } from "@/components/ChatPanel";
+import { IssuesPanel } from "@/components/IssuesPanel";
 
 const ACTIVE = new Set(["pending", "cloning", "parsing", "embedding", "mapping"]);
-type Tab = "overview" | "architecture" | "chat";
+type Tab = "overview" | "architecture" | "issues" | "chat";
 
 export default function RepoPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -104,7 +105,7 @@ export default function RepoPage({ params }: { params: { id: string } }) {
       {repo.status === "ready" && (
         <>
           <div className="flex gap-1 border-b border-border">
-            {(["overview", "architecture", "chat"] as Tab[]).map((t) => (
+            {(["overview", "architecture", "issues", "chat"] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -152,6 +153,8 @@ export default function RepoPage({ params }: { params: { id: string } }) {
             ) : (
               <div className="text-muted">Loading architecture…</div>
             ))}
+
+          {tab === "issues" && <IssuesPanel repoId={repo.id} />}
 
           {tab === "chat" && <ChatPanel repoId={repo.id} />}
         </>

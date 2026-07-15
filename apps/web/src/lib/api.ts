@@ -3,6 +3,8 @@ import type {
   AuthConfig,
   ChatResponse,
   IndexJob,
+  Issue,
+  IssueDetail,
   ProviderStatus,
   Repository,
   User,
@@ -83,6 +85,19 @@ export const api = {
     req<Architecture>(`/repositories/${id}/architecture`),
   deleteRepo: (id: string) =>
     req<void>(`/repositories/${id}`, { method: "DELETE" }),
+  // --- issues ---
+  syncIssues: (repoId: string) =>
+    req<{ synced: number }>(`/repositories/${repoId}/issues/sync`, {
+      method: "POST",
+    }),
+  listIssues: (repoId: string) => req<Issue[]>(`/repositories/${repoId}/issues`),
+  getIssue: (repoId: string, number: number) =>
+    req<IssueDetail>(`/repositories/${repoId}/issues/${number}`),
+  analyzeIssue: (repoId: string, number: number) =>
+    req<IssueDetail>(`/repositories/${repoId}/issues/${number}/analyze`, {
+      method: "POST",
+    }),
+
   chat: (id: string, question: string) =>
     req<ChatResponse>(`/repositories/${id}/chat`, {
       method: "POST",

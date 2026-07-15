@@ -55,6 +55,32 @@ export interface ChatResponse {
   provider: string;
 }
 
+export interface Issue {
+  id: string;
+  github_number: number;
+  title: string;
+  state: string;
+  labels: string[];
+  author: string | null;
+  comments_count: number;
+  html_url: string;
+  github_updated_at: string | null;
+  analysis_status: string;
+  complexity_score: number | null;
+  complexity_level: string | null;
+  estimated_hours: string | null;
+  suitability_score: number | null;
+}
+
+export interface IssueDetail extends Issue {
+  body: string | null;
+  affected_files: Citation[];
+  required_knowledge: string[];
+  strategy: string | null;
+  risks: string[];
+  analysis_provider: string | null;
+}
+
 export interface ArchModule {
   name: string;
   file_count: number;
