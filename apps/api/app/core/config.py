@@ -25,18 +25,19 @@ class Settings(BaseSettings):
     app_name: str = "OpenSource AI Engineer API"
     environment: str = "development"
     api_v1_prefix: str = "/api/v1"
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    # Comma-separated origins, e.g. "https://app.vercel.app,https://www.x.com".
+    # Deliberately a plain `str`, NOT list[str]: pydantic-settings JSON-decodes
+    # complex types straight from the environment, so a list field would make
+    # `CORS_ORIGINS=https://app.vercel.app` blow up with a JSONDecodeError
+    # before any validator runs. Read it via `cors_origins_list`.
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     # --- Postgres ---
     database_url: str = "postgresql+psycopg://osae:osae@localhost:5432/osae"
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def _split_origins(cls, v):
-        # Allow a plain comma-separated env var (hosting dashboards can't do JSON).
-        if isinstance(v, str):
-            return [o.strip() for o in v.split(",") if o.strip()]
-        return v
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @field_validator("database_url", mode="before")
     @classmethod

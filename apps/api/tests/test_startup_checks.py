@@ -26,7 +26,7 @@ def _safe_prod(**overrides) -> Settings:
         database_url="postgresql+psycopg://u:p@db.example.com/osae",
         github_client_id="cid",
         github_client_secret="csecret",
-        cors_origins=["https://app.example.com"],
+        cors_origins="https://app.example.com",
     )
     base.update(overrides)
     return Settings(**base)
@@ -74,7 +74,7 @@ def test_missing_oauth_blocks_production():
 
 
 def test_localhost_cors_blocks_production():
-    errors = collect_production_errors(_safe_prod(cors_origins=["http://localhost:3000"]))
+    errors = collect_production_errors(_safe_prod(cors_origins="http://localhost:3000"))
     assert any("CORS_ORIGINS" in e for e in errors)
 
 
@@ -85,10 +85,61 @@ def test_all_errors_reported_together():
 
 
 # --- env parsing / normalization used by hosting platforms ---
+#
+# These MUST go through the real environment, not kwargs: pydantic-settings
+# JSON-decodes complex types from env vars only, so a kwarg-based test passes
+# while production crashes with SettingsError. That exact gap shipped a broken
+# deploy once — hence the monkeypatch.setenv.
 
-def test_cors_origins_accepts_comma_separated_env():
-    s = Settings(cors_origins="https://a.vercel.app, https://b.vercel.app")
-    assert s.cors_origins == ["https://a.vercel.app", "https://b.vercel.app"]
+
+def test_single_origin_from_env(monkeypatch):
+    monkeypatch.setenv("CORS_ORIGINS", "https://open-source-ai-engineer.vercel.app")
+    s = Settings()
+    assert s.cors_origins_list == ["https://open-source-ai-engineer.vercel.app"]
+
+
+def test_multiple_origins_from_env(monkeypatch):
+    monkeypatch.setenv("CORS_ORIGINS", "https://a.vercel.app, https://b.vercel.app")
+    assert Settings().cors_origins_list == ["https://a.vercel.app", "https://b.vercel.app"]
+
+
+def test_cors_default_is_localhost():
+    assert Settings().cors_origins_list == [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+
+
+def test_localhost_cors_from_env_blocks_production(monkeypatch):
+    monkeypatch.setenv("CORS_ORIGINS", "http://localhost:3000")
+    errors = collect_production_errors(_safe_prod(cors_origins="http://localhost:3000"))
+    assert any("CORS_ORIGINS" in e for e in errors)
+
+
+def test_every_env_var_loads_from_environment(monkeypatch):
+    """A production-shaped environment must construct Settings without error."""
+    env = {
+        "ENVIRONMENT": "production",
+        "ALLOW_DEV_LOGIN": "false",
+        "SESSION_SECRET": "x" * 40,
+        "ENCRYPTION_KEY": "8Yl0Z8mWZ0mVQ0m0m0m0m0m0m0m0m0m0m0m0m0m0m0M=",
+        "SESSION_COOKIE_SECURE": "true",
+        "SESSION_COOKIE_SAMESITE": "none",
+        "DATABASE_URL": "postgres://u:p@h/db",
+        "CORS_ORIGINS": "https://open-source-ai-engineer.vercel.app",
+        "FRONTEND_URL": "https://open-source-ai-engineer.vercel.app",
+        "GITHUB_CLIENT_ID": "cid",
+        "GITHUB_CLIENT_SECRET": "csec",
+        "QDRANT_URL": "https://x.cloud.qdrant.io:6333",
+        "QDRANT_API_KEY": "k",
+        "TASK_BACKEND": "inline",
+    }
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    s = Settings()
+    assert s.database_url.startswith("postgresql+psycopg://")  # normalized
+    assert s.cors_origins_list == ["https://open-source-ai-engineer.vercel.app"]
+    verify_production(s)  # the whole prod config must pass the gate
 
 
 @pytest.mark.parametrize(

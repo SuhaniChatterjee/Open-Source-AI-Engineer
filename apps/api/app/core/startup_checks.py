@@ -63,7 +63,8 @@ def collect_production_errors(s: Settings) -> list[str]:
             "disabled, GitHub OAuth is the only way to sign in."
         )
 
-    if not s.cors_origins or any("localhost" in o for o in s.cors_origins):
+    origins = s.cors_origins_list
+    if not origins or any("localhost" in o for o in origins):
         errors.append(
             "CORS_ORIGINS still contains localhost. Set it to your deployed "
             "frontend origin(s)."
