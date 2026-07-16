@@ -26,8 +26,17 @@ class Settings(BaseSettings):
     # --- Postgres ---
     database_url: str = "postgresql+psycopg://osae:osae@localhost:5432/osae"
 
-    # --- Redis (reserved for background workers; not required for the slice) ---
+    # --- Redis / background jobs ---
     redis_url: str = "redis://localhost:6379/0"
+    # How background jobs run: "inline" (FastAPI BackgroundTasks — zero-config,
+    # non-blocking dev default) or "celery" (enqueue to a Redis-backed worker).
+    task_backend: str = "inline"
+    # Broker/backend default to redis_url when blank.
+    celery_broker_url: str = ""
+    celery_result_backend: str = ""
+    # Eager runs tasks inline in the caller (used by tests, and a safe fallback
+    # if someone enqueues without a running worker). Set False in production.
+    celery_task_always_eager: bool = True
 
     # --- Auth / sessions ---
     frontend_url: str = "http://localhost:3000"

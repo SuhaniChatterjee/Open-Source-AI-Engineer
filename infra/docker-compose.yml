@@ -36,6 +36,28 @@ services:
     volumes:
       - osae_qdrant_data:/qdrant/storage
 
+  # Celery worker consuming background jobs (indexing, drafting, publishing).
+  # Enable by pointing the API at it: TASK_BACKEND=celery.
+  worker:
+    build:
+      context: ../apps/api
+    container_name: osae_worker
+    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      TASK_BACKEND: celery
+      CELERY_TASK_ALWAYS_EAGER: "false"
+      DATABASE_URL: postgresql+psycopg://osae:osae@postgres:5432/osae
+      REDIS_URL: redis://redis:6379/0
+      QDRANT_URL: http://qdrant:6333
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    profiles: ["worker"]
+
 volumes:
   osae_pg_data:
   osae_qdrant_data:

@@ -87,6 +87,24 @@ OPENAI_API_KEY=sk-...
 or point `LLM_PROVIDER=ollama` at a local Ollama instance. With a real provider
 the chat returns fully synthesized answers instead of the extractive mock.
 
+## Background jobs
+
+Indexing, contribution drafting, and publishing run off the request path. Two
+modes, chosen by `TASK_BACKEND`:
+
+- **`inline`** (default) — FastAPI BackgroundTasks. Zero-config, non-blocking,
+  great for dev. No Redis needed.
+- **`celery`** — enqueue to a Redis-backed Celery worker for real horizontal
+  scaling. Set `TASK_BACKEND=celery`, run Redis, and start a worker:
+
+```bash
+make worker    # celery -A app.worker.celery_app worker (TASK_BACKEND=celery)
+```
+
+Or with Docker: `docker compose -f infra/docker-compose.yml --profile worker up`.
+Enqueued tasks fall back to running inline if no worker is up
+(`CELERY_TASK_ALWAYS_EAGER`), so work is never silently dropped.
+
 ## Database migrations
 
 The schema is managed by **Alembic**. The API runs `alembic upgrade head` on

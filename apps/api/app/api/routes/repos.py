@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
+from app.jobs import submit_indexing
 from app.models import IndexJob, Repository, User
 from app.schemas import IndexJobOut, RepoCreate, RepoOut
-from app.services.indexing_service import run_indexing
 from app.services.repo_service import normalize_repo
 from app.services.vectorstore import get_vector_store
 
@@ -70,7 +70,7 @@ def add_repository(
     db.commit()
     db.refresh(job)
 
-    background.add_task(run_indexing, repo.id, job.id)
+    submit_indexing(background, repo.id, job.id)
     return repo
 
 

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
+from app.jobs import submit_indexing
 from app.models import GitHubInstallation, User
 from app.services import github_app, webhook_service
 
@@ -65,4 +66,8 @@ async def github_webhook(
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail="Invalid JSON") from exc
 
-    return webhook_service.dispatch(db, x_github_event, payload, background.add_task)
+    # Re-indexes triggered by a push go through the same job dispatch as the API.
+    def schedule(repo_id: str, job_id: str) -> None:
+        submit_indexing(background, repo_id, job_id)
+
+    return webhook_service.dispatch(db, x_github_event, payload, schedule)

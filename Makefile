@@ -1,5 +1,5 @@
 .PHONY: help infra-up infra-down api-install api-dev api-test web-install web-dev dev \
-        migrate migration migrate-down db-stamp
+        migrate migration migrate-down db-stamp worker
 
 help:
 	@echo "OpenSource AI Engineer — dev commands"
@@ -7,6 +7,7 @@ help:
 	@echo "  make infra-down    Stop infra"
 	@echo "  make api-install   Create venv + install API deps"
 	@echo "  make api-dev       Run the FastAPI server on :8000"
+	@echo "  make worker        Run a Celery worker (needs Redis; TASK_BACKEND=celery)"
 	@echo "  make api-test      Run backend tests"
 	@echo "  make migrate       Apply migrations (alembic upgrade head)"
 	@echo "  make migration m=\"msg\"  Autogenerate a migration from model changes"
@@ -26,6 +27,10 @@ api-install:
 
 api-dev:
 	cd apps/api && . .venv/bin/activate && uvicorn app.main:app --reload --port 8000
+
+worker:
+	cd apps/api && . .venv/bin/activate && TASK_BACKEND=celery CELERY_TASK_ALWAYS_EAGER=false \
+		celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
 
 api-test:
 	cd apps/api && . .venv/bin/activate && PYTHONPATH=. pytest -q

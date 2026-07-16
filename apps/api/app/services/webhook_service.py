@@ -28,8 +28,8 @@ from app.services import issue_service
 
 logger = logging.getLogger(__name__)
 
-# A scheduler: schedule(func, *args) — the route passes BackgroundTasks.add_task.
-Scheduler = Callable[..., None]
+# A scheduler that enqueues a re-index: schedule(repo_id, job_id).
+Scheduler = Callable[[str, str], None]
 
 
 def verify_signature(body: bytes, signature_header: str | None) -> bool:
@@ -131,10 +131,7 @@ def _on_push(db: Session, payload: dict, schedule: Scheduler) -> dict:
         db.add(job)
         db.commit()
         db.refresh(job)
-        # Import here to avoid a circular import at module load.
-        from app.services.indexing_service import run_indexing
-
-        schedule(run_indexing, repo.id, job.id)
+        schedule(repo.id, job.id)
         scheduled += 1
     return {"ok": True, "event": "push", "reindexed": scheduled}
 

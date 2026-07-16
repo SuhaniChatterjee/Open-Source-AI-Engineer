@@ -17,6 +17,7 @@ from app.schemas import (
     PublishPreviewOut,
     PublishRequest,
 )
+from app.jobs import submit_contribution, submit_publish
 from app.services import contribution_service, github_writer
 
 router = APIRouter(prefix="/repositories/{repo_id}", tags=["contributions"])
@@ -98,7 +99,7 @@ def start_contribution(
     db.commit()
     db.refresh(task)
 
-    background.add_task(contribution_service.start_contribution, task.id)
+    submit_contribution(background, task.id)
     return _to_out(db, task)
 
 
@@ -192,5 +193,5 @@ def publish_contribution(
     task.publish_status = "publishing"
     task.publish_error = None
     db.commit()
-    background.add_task(github_writer.publish, task.id, payload.head_repo)
+    submit_publish(background, task.id, payload.head_repo)
     return _to_out(db, task)
