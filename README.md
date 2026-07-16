@@ -87,6 +87,23 @@ OPENAI_API_KEY=sk-...
 or point `LLM_PROVIDER=ollama` at a local Ollama instance. With a real provider
 the chat returns fully synthesized answers instead of the extractive mock.
 
+## Database migrations
+
+The schema is managed by **Alembic**. The API runs `alembic upgrade head` on
+startup, so a fresh database is created (and an existing one upgraded)
+automatically — no manual step for normal dev. SQLite uses batch mode so column
+changes work there too.
+
+```bash
+make migrate                 # apply migrations (alembic upgrade head)
+make migration m="add x"     # autogenerate a migration after changing models
+make migrate-down            # roll back one revision
+make db-stamp                # mark a pre-Alembic DB as up-to-date (one-time)
+```
+
+A test (`tests/test_migrations.py`) fails if the models and migrations drift
+apart, so a new column can't be shipped without its migration.
+
 ## Testing
 
 ```bash

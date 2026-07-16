@@ -36,9 +36,19 @@ def get_db() -> Iterator[Session]:
 
 
 def init_db() -> None:
-    """Create tables. For the MVP we use create_all; migrations come later."""
-    # Import models so they register on the metadata before create_all.
-    from app import models  # noqa: F401
-    from app.db.base import Base
+    """Bring the schema to the latest Alembic revision on startup.
 
-    Base.metadata.create_all(bind=engine)
+    Running `alembic upgrade head` programmatically keeps the zero-config dev
+    experience (the app just works on boot) while making migrations the single
+    source of truth for the schema — no more create_all drift.
+    """
+    import os
+
+    from alembic import command
+    from alembic.config import Config
+
+    api_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    cfg = Config(os.path.join(api_root, "alembic.ini"))
+    cfg.set_main_option("script_location", os.path.join(api_root, "migrations"))
+    cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    command.upgrade(cfg, "head")

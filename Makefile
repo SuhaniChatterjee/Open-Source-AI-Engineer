@@ -1,4 +1,5 @@
-.PHONY: help infra-up infra-down api-install api-dev api-test web-install web-dev dev
+.PHONY: help infra-up infra-down api-install api-dev api-test web-install web-dev dev \
+        migrate migration migrate-down db-stamp
 
 help:
 	@echo "OpenSource AI Engineer — dev commands"
@@ -7,6 +8,10 @@ help:
 	@echo "  make api-install   Create venv + install API deps"
 	@echo "  make api-dev       Run the FastAPI server on :8000"
 	@echo "  make api-test      Run backend tests"
+	@echo "  make migrate       Apply migrations (alembic upgrade head)"
+	@echo "  make migration m=\"msg\"  Autogenerate a migration from model changes"
+	@echo "  make migrate-down  Roll back one migration"
+	@echo "  make db-stamp      Stamp an existing pre-Alembic DB at head"
 	@echo "  make web-install   Install frontend deps"
 	@echo "  make web-dev       Run the Next.js dev server on :3000"
 
@@ -24,6 +29,20 @@ api-dev:
 
 api-test:
 	cd apps/api && . .venv/bin/activate && PYTHONPATH=. pytest -q
+
+migrate:
+	cd apps/api && . .venv/bin/activate && PYTHONPATH=. alembic upgrade head
+
+migration:
+	cd apps/api && . .venv/bin/activate && PYTHONPATH=. alembic revision --autogenerate -m "$(m)"
+
+migrate-down:
+	cd apps/api && . .venv/bin/activate && PYTHONPATH=. alembic downgrade -1
+
+# For a database created before Alembic (tables already exist): mark it at head
+# so `upgrade` won't try to recreate them.
+db-stamp:
+	cd apps/api && . .venv/bin/activate && PYTHONPATH=. alembic stamp head
 
 web-install:
 	cd apps/web && npm install
