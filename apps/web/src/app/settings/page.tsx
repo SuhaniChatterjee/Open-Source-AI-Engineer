@@ -11,9 +11,10 @@ import type {
 } from "@/lib/types";
 
 const PROVIDERS = [
-  { id: "mock", label: "Mock (offline, no key)" },
-  { id: "openai", label: "OpenAI (needs API key)" },
+  { id: "gemini", label: "Gemini (free tier — recommended)" },
+  { id: "openai", label: "OpenAI (paid)" },
   { id: "ollama", label: "Ollama (local)" },
+  { id: "mock", label: "Mock (offline — lists files, no real answers)" },
 ];
 
 export default function SettingsPage() {
@@ -23,6 +24,7 @@ export default function SettingsPage() {
   const [llm, setLlm] = useState("mock");
   const [embed, setEmbed] = useState("mock");
   const [key, setKey] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
   const [ghKey, setGhKey] = useState("");
   const [ghApp, setGhApp] = useState<GitHubAppInfo | null>(null);
   const [installs, setInstalls] = useState<GitHubInstallation[]>([]);
@@ -68,6 +70,18 @@ export default function SettingsPage() {
       setStatus(await api.setProviderKey("openai", key));
       setKey("");
       setMsg("OpenAI key saved (encrypted).");
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+
+  async function saveGeminiKey() {
+    setErr(null);
+    setMsg(null);
+    try {
+      setStatus(await api.setProviderKey("gemini", geminiKey));
+      setGeminiKey("");
+      setMsg("Gemini key saved (encrypted). Re-index a repo to use it for embeddings.");
     } catch (e) {
       setErr((e as Error).message);
     }
@@ -132,8 +146,14 @@ export default function SettingsPage() {
           </label>
         </div>
         <p className="text-xs text-muted">
-          Note: switching the embedding provider changes vector dimensions —
-          re-index a repo after changing it.
+          <strong className="text-yellow-400">Mock</strong> is an offline
+          fallback: it lists matching files instead of explaining them. Pick
+          Gemini or OpenAI (and save a key below) for real answers.
+        </p>
+        <p className="text-xs text-muted">
+          Note: switching the embedding provider changes vector dimensions
+          (mock 384 · gemini 768 · openai 1536) — you must{" "}
+          <strong>re-index</strong> each repo after changing it.
         </p>
         <button onClick={saveSettings} className="btn-primary">
           Save providers
@@ -164,6 +184,22 @@ export default function SettingsPage() {
           ) : (
             <span>No keys configured.</span>
           )}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="password"
+            className="input"
+            placeholder="Gemini API key (free — aistudio.google.com/apikey)"
+            value={geminiKey}
+            onChange={(e) => setGeminiKey(e.target.value)}
+          />
+          <button
+            onClick={saveGeminiKey}
+            className="btn-ghost whitespace-nowrap"
+            disabled={geminiKey.length < 8}
+          >
+            Save key
+          </button>
         </div>
         <div className="flex gap-2">
           <input

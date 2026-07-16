@@ -31,29 +31,54 @@ def _user_key(db: Session, user_id: str, provider: str) -> str | None:
     return decrypt_secret(cred.encrypted_key) if cred else None
 
 
+def _key_for(db: Session, user: User | None, provider: str) -> str | None:
+    """The user's stored key for `provider`, else a server-level fallback."""
+    if user:
+        key = _user_key(db, user.id, provider)
+        if key:
+            return key
+    return {
+        "openai": settings.openai_api_key,
+        "gemini": settings.gemini_api_key,
+    }.get(provider)
+
+
 def resolve_embedding_provider(db: Session, user: User | None) -> EmbeddingProvider:
     provider = (user.embedding_provider if user else settings.embedding_provider).lower()
     if provider == "openai":
-        key = _user_key(db, user.id, "openai") if user else settings.openai_api_key
+        key = _key_for(db, user, "openai")
         if key:
             from app.providers.openai import OpenAIEmbeddingProvider
 
             return OpenAIEmbeddingProvider(api_key=key)
+    if provider == "gemini":
+        key = _key_for(db, user, "gemini")
+        if key:
+            from app.providers.gemini import GeminiEmbeddingProvider
+
+            return GeminiEmbeddingProvider(api_key=key)
     if provider == "ollama":
         from app.providers.ollama import OllamaEmbeddingProvider
 
         return OllamaEmbeddingProvider()
+    # Selected a real provider but never saved a key -> fall back rather than 500.
     return MockEmbeddingProvider()
 
 
 def resolve_llm_provider(db: Session, user: User | None) -> LLMProvider:
     provider = (user.llm_provider if user else settings.llm_provider).lower()
     if provider == "openai":
-        key = _user_key(db, user.id, "openai") if user else settings.openai_api_key
+        key = _key_for(db, user, "openai")
         if key:
             from app.providers.openai import OpenAILLMProvider
 
             return OpenAILLMProvider(api_key=key)
+    if provider == "gemini":
+        key = _key_for(db, user, "gemini")
+        if key:
+            from app.providers.gemini import GeminiLLMProvider
+
+            return GeminiLLMProvider(api_key=key)
     if provider == "ollama":
         from app.providers.ollama import OllamaLLMProvider
 

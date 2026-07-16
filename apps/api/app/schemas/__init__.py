@@ -34,13 +34,13 @@ class OAuthCallbackRequest(BaseModel):
 
 
 class ProviderSettingsUpdate(BaseModel):
-    llm_provider: str = Field(..., pattern="^(mock|openai|ollama)$")
-    embedding_provider: str = Field(..., pattern="^(mock|openai|ollama)$")
+    llm_provider: str = Field(..., pattern="^(mock|openai|gemini|ollama)$")
+    embedding_provider: str = Field(..., pattern="^(mock|openai|gemini|ollama)$")
 
 
 class ProviderKeyUpdate(BaseModel):
     # "github" stores a write token used only for publishing pull requests.
-    provider: str = Field(..., pattern="^(openai|github)$")
+    provider: str = Field(..., pattern="^(openai|gemini|github)$")
     api_key: str = Field(..., min_length=8)
 
 

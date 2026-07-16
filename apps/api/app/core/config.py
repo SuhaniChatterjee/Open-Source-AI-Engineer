@@ -121,6 +121,12 @@ class Settings(BaseSettings):
     ollama_chat_model: str = "llama3.1"
     ollama_embedding_model: str = "nomic-embed-text"
 
+    # Google Gemini — has a free tier covering both chat and embeddings.
+    gemini_api_key: str | None = None
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    gemini_chat_model: str = "gemini-2.0-flash"
+    gemini_embedding_model: str = "text-embedding-004"
+
     # --- Indexing ---
     workspace_dir: str = "/tmp/osae-workspaces"
     max_repo_files: int = 4000  # v1 caps repo size; large repos are a later phase

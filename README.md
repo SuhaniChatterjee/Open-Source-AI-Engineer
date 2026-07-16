@@ -21,8 +21,11 @@ always under explicit human approval.
   architectural layers, entry points ("start here"), and language mix.
 - **Repository chat (RAG)**: ask natural-language questions and get answers
   **grounded in the code with file:line citations**.
-- **Bring-your-own AI provider**: mock (offline, zero-config) · OpenAI-compatible
-  · Ollama (local). The platform pays for **no** inference.
+- **Bring-your-own AI provider**: Gemini (free tier — chat + embeddings) ·
+  OpenAI · Ollama (local) · mock (offline, zero-config). The platform pays for
+  **no** inference. Chosen per-user in Settings; keys are encrypted at rest.
+  > The **mock** provider is a fallback that *lists matching files rather than
+  > explaining them* — connect Gemini or OpenAI for real synthesized answers.
 - **Zero-config local run**: falls back to SQLite + an embedded on-disk Qdrant
   (persists across restarts) + offline mock providers, so the whole flow runs
   with no Docker and no API keys.
