@@ -12,6 +12,7 @@ gitpython==3.1.43
 tenacity==9.0.0
 itsdangerous==2.2.0
 cryptography==44.0.0
+pyjwt==2.10.1
 # Tree-sitter parsing (optional at runtime; parser falls back to a line-based
 # chunker if these fail to import/build). Pinned to the 0.23 ABI.
 tree-sitter==0.23.2

@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { ProviderStatus } from "@/lib/types";
+import type {
+  GitHubAppInfo,
+  GitHubInstallation,
+  ProviderStatus,
+} from "@/lib/types";
 
 const PROVIDERS = [
   { id: "mock", label: "Mock (offline, no key)" },
@@ -20,6 +24,8 @@ export default function SettingsPage() {
   const [embed, setEmbed] = useState("mock");
   const [key, setKey] = useState("");
   const [ghKey, setGhKey] = useState("");
+  const [ghApp, setGhApp] = useState<GitHubAppInfo | null>(null);
+  const [installs, setInstalls] = useState<GitHubInstallation[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -32,6 +38,12 @@ export default function SettingsPage() {
     setStatus(s);
     setLlm(s.llm_provider);
     setEmbed(s.embedding_provider);
+    try {
+      setGhApp(await api.githubApp());
+      setInstalls(await api.githubInstallations());
+    } catch {
+      /* non-fatal */
+    }
   }
 
   useEffect(() => {
@@ -202,6 +214,57 @@ export default function SettingsPage() {
             >
               remove
             </button>
+          </div>
+        )}
+      </div>
+
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="font-medium">GitHub App</h2>
+          {ghApp &&
+            (ghApp.configured ? (
+              <span className="badge bg-green-500/15 text-green-400">configured</span>
+            ) : (
+              <span className="badge bg-panel2 text-muted">not configured</span>
+            ))}
+        </div>
+        <p className="text-sm text-muted">
+          Installing the GitHub App lets the platform react to your repos
+          (auto-reindex on push, sync issues on change) and publish pull requests
+          with short-lived installation tokens instead of a personal token.
+        </p>
+
+        {ghApp?.configured && ghApp.install_url ? (
+          <a href={ghApp.install_url} target="_blank" rel="noreferrer" className="btn-primary">
+            Install the GitHub App
+          </a>
+        ) : (
+          <p className="text-xs text-muted">
+            Not configured on this server. Set <code>GITHUB_APP_ID</code>,{" "}
+            <code>GITHUB_APP_PRIVATE_KEY</code>, <code>GITHUB_APP_SLUG</code>, and{" "}
+            <code>GITHUB_WEBHOOK_SECRET</code> to enable it. A personal token
+            (above) still works for publishing.
+          </p>
+        )}
+
+        {installs.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs uppercase tracking-wide text-muted">
+              Installations
+            </div>
+            {installs.map((i) => (
+              <div key={i.installation_id} className="flex items-center gap-3 text-sm">
+                <span className="badge bg-panel2 text-gray-300">
+                  {i.account_login}
+                </span>
+                <span className="text-muted text-xs">
+                  {i.repository_selection} repos
+                </span>
+                {i.suspended && (
+                  <span className="badge bg-red-500/15 text-red-400">suspended</span>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

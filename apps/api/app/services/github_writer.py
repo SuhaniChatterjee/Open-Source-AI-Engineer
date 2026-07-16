@@ -25,11 +25,21 @@ from dataclasses import dataclass
 import httpx
 from git import Actor, Repo
 
+from sqlalchemy import select
+
 from app.core.config import settings
 from app.core.security import decrypt_secret
 from app.db.session import SessionLocal
 from app.indexing.cloner import workspace_path
-from app.models import ContributionTask, Issue, ProviderCredential, Repository, User
+from app.models import (
+    ContributionTask,
+    GitHubInstallation,
+    Issue,
+    ProviderCredential,
+    Repository,
+    User,
+)
+from app.services import github_app
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +62,7 @@ class PublishPreview:
 
 
 def resolve_write_token(db, user: User | None) -> str | None:
-    """A user's encrypted GitHub token, else a server-level env token."""
+    """A user's encrypted GitHub PAT, else a server-level env token."""
     if user:
         cred = (
             db.query(ProviderCredential)
@@ -67,6 +77,27 @@ def resolve_write_token(db, user: User | None) -> str | None:
             if token:
                 return token
     return os.environ.get("GITHUB_TOKEN")
+
+
+def resolve_publish_token(db, user: User | None, account_login: str) -> str | None:
+    """Preferred token for pushing to `account_login`.
+
+    A GitHub App installation token for that account wins (short-lived,
+    least-privilege); otherwise fall back to a user PAT / env token.
+    """
+    if github_app.is_configured():
+        inst = db.scalar(
+            select(GitHubInstallation).where(
+                GitHubInstallation.account_login == account_login,
+                GitHubInstallation.suspended.is_(False),
+            )
+        )
+        if inst:
+            try:
+                return github_app.installation_token(inst.installation_id)
+            except Exception:  # noqa: BLE001 - fall back to a PAT
+                logger.warning("installation token failed for %s; using PAT", account_login)
+    return resolve_write_token(db, user)
 
 
 def branch_name_for(task: ContributionTask, issue: Issue) -> str:
@@ -166,6 +197,7 @@ def preview(db, user: User, task: ContributionTask, head_repo: str | None) -> Pu
     changes = _changes(task)
     head_owner = _split_owner_repo(head_repo)[0] if head_repo else None
     head = f"{head_owner}:{branch}" if head_owner else branch
+    push_account = _split_owner_repo(head_repo or repo.full_name)[0]
     return PublishPreview(
         branch_name=branch,
         base=repo.default_branch,
@@ -175,7 +207,7 @@ def preview(db, user: User, task: ContributionTask, head_repo: str | None) -> Pu
         pr_title=task.pr_title or "",
         pr_body=task.pr_body or "",
         head_repo=head_repo or repo.full_name,
-        token_configured=resolve_write_token(db, user) is not None,
+        token_configured=resolve_publish_token(db, user, push_account) is not None,
     )
 
 
@@ -197,16 +229,17 @@ def publish(task_id: str, head_repo: str | None) -> None:
         repo = db.get(Repository, task.repository_id)
         user = db.get(User, task.owner_id)
 
-        token = resolve_write_token(db, user)
-        if not token:
-            raise GitHubWriteError(
-                "No GitHub write token configured. Add one in Settings to publish."
-            )
-
         branch = branch_name_for(task, issue)
         changes = _changes(task)
         # Push to the fork if given, else to the repo itself.
         push_full_name = head_repo or repo.full_name
+        push_account = _split_owner_repo(push_full_name)[0]
+
+        token = resolve_publish_token(db, user, push_account)
+        if not token:
+            raise GitHubWriteError(
+                "No GitHub write access. Install the GitHub App or add a token in Settings."
+            )
         push_clone_url = f"https://github.com/{push_full_name}.git"
         author = Actor(user.name or user.login, user.email or f"{user.login}@users.noreply.github.com")
 

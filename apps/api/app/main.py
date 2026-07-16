@@ -11,6 +11,7 @@ from app.api.routes import (
     auth,
     chat,
     contributions,
+    github_app,
     health,
     issues,
     providers,
@@ -48,6 +49,7 @@ app.include_router(providers.router, prefix=settings.api_v1_prefix)
 app.include_router(repos.router, prefix=settings.api_v1_prefix)
 app.include_router(issues.router, prefix=settings.api_v1_prefix)
 app.include_router(contributions.router, prefix=settings.api_v1_prefix)
+app.include_router(github_app.router, prefix=settings.api_v1_prefix)
 app.include_router(chat.router, prefix=settings.api_v1_prefix)
 
 

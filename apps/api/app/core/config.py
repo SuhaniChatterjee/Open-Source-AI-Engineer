@@ -49,6 +49,15 @@ class Settings(BaseSettings):
     # stays runnable with zero credentials (mirrors the mock-provider fallback).
     allow_dev_login: bool = True
 
+    # --- GitHub App (installation tokens + webhooks). Optional. ---
+    github_app_id: str | None = None
+    github_app_slug: str | None = None  # for the install URL
+    # PEM private key, either inline or via a file path.
+    github_app_private_key: str | None = None
+    github_app_private_key_path: str | None = None
+    # Secret configured on the GitHub App used to sign webhook deliveries.
+    github_webhook_secret: str | None = None
+
     # --- Vector store (Qdrant) ---
     # If Qdrant is unreachable, the vector store falls back to in-memory mode.
     qdrant_url: str = "http://localhost:6333"

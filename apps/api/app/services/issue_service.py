@@ -66,6 +66,39 @@ def sync_issues(db: Session, repo: Repository, limit: int = 50) -> int:
     return len(fetched)
 
 
+def upsert_issue_from_payload(db: Session, repo: Repository, payload: dict) -> Issue | None:
+    """Upsert a single issue from a webhook 'issues' event payload.
+
+    Returns None if the payload is actually a pull request. Existing analysis is
+    invalidated only when the body changed.
+    """
+    if payload.get("pull_request"):
+        return None
+    number = payload["number"]
+    issue = db.scalar(
+        select(Issue).where(
+            Issue.repository_id == repo.id, Issue.github_number == number
+        )
+    )
+    if not issue:
+        issue = Issue(repository_id=repo.id, github_number=number)
+        db.add(issue)
+    body_changed = (issue.body or "") != (payload.get("body") or "")
+    issue.title = (payload.get("title") or "")[:512]
+    issue.body = payload.get("body") or ""
+    issue.state = payload.get("state", "open")
+    issue.labels = json.dumps([l["name"] for l in payload.get("labels", [])])
+    issue.author = (payload.get("user") or {}).get("login")
+    issue.comments_count = payload.get("comments", 0)
+    issue.html_url = payload.get("html_url", "")
+    issue.github_created_at = payload.get("created_at")
+    issue.github_updated_at = payload.get("updated_at")
+    if body_changed and issue.analysis_status == "analyzed":
+        issue.analysis_status = "not_analyzed"
+    db.commit()
+    return issue
+
+
 # --- heuristic scoring (deterministic, unit-tested) ---------------------------
 
 

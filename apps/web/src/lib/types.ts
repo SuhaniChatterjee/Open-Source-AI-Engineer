@@ -19,6 +19,20 @@ export interface ProviderStatus {
   configured_keys: Record<string, string>;
 }
 
+export interface GitHubAppInfo {
+  configured: boolean;
+  install_url: string | null;
+  app_slug: string | null;
+}
+
+export interface GitHubInstallation {
+  installation_id: number;
+  account_login: string;
+  account_type: string | null;
+  repository_selection: string | null;
+  suspended: boolean;
+}
+
 export interface Repository {
   id: string;
   full_name: string;

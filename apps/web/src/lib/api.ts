@@ -3,6 +3,8 @@ import type {
   AuthConfig,
   ChatResponse,
   Contribution,
+  GitHubAppInfo,
+  GitHubInstallation,
   IndexJob,
   Issue,
   IssueDetail,
@@ -58,6 +60,10 @@ export const api = {
       body: JSON.stringify({ code, state }),
     }),
   logout: () => req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+
+  // --- github app ---
+  githubApp: () => req<GitHubAppInfo>("/github/app"),
+  githubInstallations: () => req<GitHubInstallation[]>("/github/installations"),
 
   // --- providers ---
   getProviders: () => req<ProviderStatus>("/providers"),

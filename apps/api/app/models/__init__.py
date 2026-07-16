@@ -48,6 +48,25 @@ class ProviderCredential(Base):
     user: Mapped["User"] = relationship(back_populates="credentials")
 
 
+class GitHubInstallation(Base):
+    """A GitHub App installation on a user/org account. Lets the platform mint
+    short-lived installation tokens to act on the installed repositories."""
+
+    __tablename__ = "github_installations"
+
+    installation_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    account_login: Mapped[str] = mapped_column(String(255), index=True)
+    account_type: Mapped[str | None] = mapped_column(String(32), nullable=True)  # User|Organization
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    repository_selection: Mapped[str | None] = mapped_column(String(16), nullable=True)  # all|selected
+    sender_login: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    suspended: Mapped[bool] = mapped_column(default=False)
+    # Best-effort link to the platform user who installed it (matched by login).
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+
 class Repository(Base):
     __tablename__ = "repositories"
 
@@ -223,6 +242,7 @@ class Message(Base):
 __all__ = [
     "User",
     "ProviderCredential",
+    "GitHubInstallation",
     "Repository",
     "IndexJob",
     "Issue",

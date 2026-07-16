@@ -181,10 +181,12 @@ def publish_contribution(
         raise HTTPException(status_code=400, detail="Explicit confirmation is required")
     if task.publish_status in ("publishing", "published"):
         raise HTTPException(status_code=409, detail=f"Already {task.publish_status}")
-    if github_writer.resolve_write_token(db, user) is None:
+    repo = db.get(Repository, repo_id)
+    push_account = (payload.head_repo or repo.full_name).split("/", 1)[0]
+    if github_writer.resolve_publish_token(db, user, push_account) is None:
         raise HTTPException(
             status_code=400,
-            detail="No GitHub write token configured. Add one in Settings first.",
+            detail="No GitHub write access. Install the GitHub App or add a token in Settings.",
         )
 
     task.publish_status = "publishing"
