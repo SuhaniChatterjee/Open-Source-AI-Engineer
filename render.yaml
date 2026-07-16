@@ -11,7 +11,7 @@ services:
     name: osae-api
     runtime: docker
     plan: free
-    region: oregon
+    region: frankfurt
     branch: main
     autoDeploy: true
     dockerfilePath: ./apps/api/Dockerfile
@@ -77,7 +77,7 @@ services:
     name: osae-worker
     runtime: docker
     plan: starter # Render has no free worker tier; see DEPLOYMENT.md for the
-    region: oregon # inline alternative if you want to stay strictly free.
+    region: frankfurt # inline alternative if you want to stay strictly free.
     branch: main
     autoDeploy: true
     dockerfilePath: ./apps/api/Dockerfile
@@ -129,12 +129,12 @@ services:
   - type: redis
     name: osae-redis
     plan: free
-    region: oregon
+    region: frankfurt
     maxmemoryPolicy: noeviction # never drop queued jobs
     ipAllowList: [] # private network only
 
 databases:
   - name: osae-postgres
     plan: free
-    region: oregon
+    region: frankfurt
     postgresMajorVersion: "16"
