@@ -29,14 +29,38 @@ class SearchHit:
 
 class VectorStore:
     def __init__(self) -> None:
+        self.client, self.mode = self._connect()
+
+    def _connect(self) -> tuple[QdrantClient, str]:
+        # 1. Prefer a running Qdrant server (shared across processes — this is
+        #    what a Celery worker + API should use in production).
         try:
-            self.client = QdrantClient(url=settings.qdrant_url, timeout=10)
-            self.client.get_collections()  # connectivity probe
-            self.mode = "qdrant"
+            client = QdrantClient(url=settings.qdrant_url, timeout=5)
+            client.get_collections()  # connectivity probe
+            return client, "qdrant-server"
         except Exception as exc:  # pragma: no cover - env dependent
-            logger.warning("Qdrant unreachable (%s); using in-memory vector store", exc)
-            self.client = QdrantClient(location=":memory:")
-            self.mode = "memory"
+            logger.info("Qdrant server not reachable (%s)", exc)
+
+        # 2. Embedded on-disk store — persistent across restarts, no server
+        #    needed. Single-process only (holds a file lock), which is why
+        #    multi-process deployments should run the server instead.
+        if settings.qdrant_path:
+            try:
+                client = QdrantClient(path=settings.qdrant_path)
+                logger.info("Using embedded on-disk Qdrant at %s", settings.qdrant_path)
+                return client, "qdrant-local"
+            except Exception as exc:  # pragma: no cover
+                logger.warning("Embedded Qdrant unavailable (%s); using in-memory", exc)
+
+        # 3. Last resort: ephemeral in-memory (lost on restart).
+        logger.warning("Using in-memory vector store — data will not persist")
+        return QdrantClient(location=":memory:"), "memory"
+
+    def close(self) -> None:
+        try:
+            self.client.close()
+        except Exception:  # pragma: no cover
+            pass
 
     def _collection(self, repo_id: str) -> str:
         return f"{settings.qdrant_collection_prefix}{repo_id.replace('-', '')}"

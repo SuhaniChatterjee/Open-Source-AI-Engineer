@@ -22,3 +22,4 @@ next-env.d.ts
 
 # Workspaces / data
 /tmp/osae-workspaces/
+qdrant_data/

@@ -68,8 +68,13 @@ class Settings(BaseSettings):
     github_webhook_secret: str | None = None
 
     # --- Vector store (Qdrant) ---
-    # If Qdrant is unreachable, the vector store falls back to in-memory mode.
+    # Resolution order: a reachable Qdrant server (shared, multi-process — use
+    # this in production) -> an embedded on-disk store at qdrant_path
+    # (persistent across restarts, single-process — the zero-config dev default)
+    # -> in-memory (ephemeral, last resort). Set qdrant_path to "" to disable
+    # the embedded fallback.
     qdrant_url: str = "http://localhost:6333"
+    qdrant_path: str = "qdrant_data"
     qdrant_collection_prefix: str = "osae_repo_"
 
     # --- Providers (BYO key). Leave blank to use the offline mock providers. ---

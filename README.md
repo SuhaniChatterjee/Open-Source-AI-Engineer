@@ -23,8 +23,12 @@ always under explicit human approval.
   **grounded in the code with file:line citations**.
 - **Bring-your-own AI provider**: mock (offline, zero-config) · OpenAI-compatible
   · Ollama (local). The platform pays for **no** inference.
-- **Zero-config local run**: falls back to SQLite + an in-memory vector store +
-  offline mock providers, so the whole flow runs with no Docker and no API keys.
+- **Zero-config local run**: falls back to SQLite + an embedded on-disk Qdrant
+  (persists across restarts) + offline mock providers, so the whole flow runs
+  with no Docker and no API keys.
+- **Persistent vectors**: uses a Qdrant server when reachable (prod, shared
+  across processes), otherwise an embedded on-disk store at `qdrant_path`
+  (survives restarts), and only an ephemeral in-memory store as a last resort.
 
 ## Architecture
 
