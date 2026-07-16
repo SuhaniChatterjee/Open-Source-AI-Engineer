@@ -147,6 +147,28 @@ export interface PublishPreview {
   token_configured: boolean;
 }
 
+export interface Preferences {
+  languages: string[];
+  topics: string[];
+  experience_level: string;
+  labels: string[];
+}
+
+export interface Opportunity {
+  repo_full_name: string;
+  repo_url: string;
+  number: number;
+  title: string;
+  html_url: string;
+  labels: string[];
+  comments: number;
+  body_preview: string;
+  created_at: string | null;
+  updated_at: string | null;
+  fit_score: number;
+  reasons: string[];
+}
+
 export interface ArchModule {
   name: string;
   file_count: number;

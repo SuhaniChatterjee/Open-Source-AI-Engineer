@@ -28,6 +28,27 @@ def _headers() -> dict:
     return headers
 
 
+def search_issues(query: str, per_page: int = 30, sort: str = "updated") -> list[dict]:
+    """Search issues across GitHub. Returns raw search result items."""
+    resp = httpx.get(
+        f"{settings.github_api_url}/search/issues",
+        headers=_headers(),
+        params={
+            "q": query,
+            "per_page": min(per_page, 100),
+            "sort": sort,
+            "order": "desc",
+        },
+        timeout=30,
+    )
+    if resp.status_code == 403 and "rate limit" in resp.text.lower():
+        raise GitHubError(
+            "GitHub search rate limit reached. Set GITHUB_TOKEN or try again shortly."
+        )
+    resp.raise_for_status()
+    return resp.json().get("items", [])
+
+
 def fetch_open_issues(full_name: str, limit: int = 50) -> list[dict]:
     """Fetch open issues (excluding pull requests) for a public repo."""
     resp = httpx.get(

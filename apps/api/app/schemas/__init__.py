@@ -50,6 +50,35 @@ class ProviderStatus(BaseModel):
     configured_keys: dict[str, str]  # provider -> masked hint
 
 
+class PreferencesOut(BaseModel):
+    languages: list[str] = []
+    topics: list[str] = []
+    experience_level: str = "beginner"
+    labels: list[str] = []
+
+
+class PreferencesUpdate(BaseModel):
+    languages: list[str] = Field(default_factory=list)
+    topics: list[str] = Field(default_factory=list)
+    experience_level: str = Field("beginner", pattern="^(beginner|intermediate|advanced)$")
+    labels: list[str] = Field(default_factory=list)
+
+
+class OpportunityOut(BaseModel):
+    repo_full_name: str
+    repo_url: str
+    number: int
+    title: str
+    html_url: str
+    labels: list[str] = []
+    comments: int
+    body_preview: str
+    created_at: str | None = None
+    updated_at: str | None = None
+    fit_score: int
+    reasons: list[str] = []
+
+
 class RepoCreate(BaseModel):
     # Accept "owner/name" or a full GitHub URL.
     repo: str = Field(..., examples=["tiangolo/fastapi"])

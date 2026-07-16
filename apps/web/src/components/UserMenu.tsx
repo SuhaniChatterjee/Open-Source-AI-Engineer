@@ -22,6 +22,12 @@ export function UserMenu() {
 
   return (
     <div className="flex items-center gap-3">
+      <a href="/" className="text-sm text-muted hover:text-gray-200">
+        Repos
+      </a>
+      <a href="/discovery" className="text-sm text-muted hover:text-gray-200">
+        Discover
+      </a>
       <a href="/settings" className="text-sm text-muted hover:text-gray-200">
         Settings
       </a>

@@ -48,6 +48,22 @@ class ProviderCredential(Base):
     user: Mapped["User"] = relationship(back_populates="credentials")
 
 
+class PersonalizationProfile(Base):
+    """Per-user preferences that drive the discovery engine (and, later, the
+    broader personalization engine)."""
+
+    __tablename__ = "personalization_profiles"
+
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    languages: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list[str]
+    topics: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list[str]
+    # beginner | intermediate | advanced
+    experience_level: Mapped[str] = mapped_column(String(16), default="beginner")
+    labels: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON list[str]
+
+
 class GitHubInstallation(Base):
     """A GitHub App installation on a user/org account. Lets the platform mint
     short-lived installation tokens to act on the installed repositories."""
@@ -242,6 +258,7 @@ class Message(Base):
 __all__ = [
     "User",
     "ProviderCredential",
+    "PersonalizationProfile",
     "GitHubInstallation",
     "Repository",
     "IndexJob",

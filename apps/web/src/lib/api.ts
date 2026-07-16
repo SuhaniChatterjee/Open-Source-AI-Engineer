@@ -8,6 +8,8 @@ import type {
   IndexJob,
   Issue,
   IssueDetail,
+  Opportunity,
+  Preferences,
   ProviderStatus,
   PublishPreview,
   Repository,
@@ -60,6 +62,15 @@ export const api = {
       body: JSON.stringify({ code, state }),
     }),
   logout: () => req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+
+  // --- discovery ---
+  getPreferences: () => req<Preferences>("/discovery/preferences"),
+  updatePreferences: (prefs: Preferences) =>
+    req<Preferences>("/discovery/preferences", {
+      method: "PUT",
+      body: JSON.stringify(prefs),
+    }),
+  getOpportunities: () => req<Opportunity[]>("/discovery/opportunities"),
 
   // --- github app ---
   githubApp: () => req<GitHubAppInfo>("/github/app"),
