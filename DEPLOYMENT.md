@@ -4,6 +4,15 @@ Frontend on **Vercel**, API + worker + Postgres + Redis on **Render**, vectors o
 **Qdrant Cloud**. Both platforms connect to this GitHub repo, so **every push to
 `main` redeploys automatically**.
 
+## One-click starts
+
+| | |
+|---|---|
+| **API + worker + Postgres + Redis** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SuhaniChatterjee/Open-Source-AI-Engineer) — reads [`render.yaml`](render.yaml) and creates everything; you fill in the secrets it prompts for. |
+| **Frontend** | [Import on Vercel →](https://vercel.com/new) — pick this repo, set **Root Directory = `apps/web`**. |
+| **Vectors** | [Qdrant Cloud free cluster →](https://cloud.qdrant.io) |
+| **OAuth App** | [Create on GitHub →](https://github.com/settings/developers) |
+
 > **The app refuses to boot in production with insecure defaults.** If a required
 > secret is missing, the API exits and logs exactly what to fix. That's intended —
 > see `apps/api/app/core/startup_checks.py`. Read [Security](#security-why-the-gate-exists).

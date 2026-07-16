@@ -97,6 +97,8 @@ Frontend on Vercel, API + worker + Postgres + Redis on Render, vectors on Qdrant
 Cloud — all GitHub-connected, so **every push to `main` auto-deploys**. Step-by-step
 guide: **[DEPLOYMENT.md](DEPLOYMENT.md)**.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SuhaniChatterjee/Open-Source-AI-Engineer)
+
 The app **refuses to boot** with `ENVIRONMENT=production` if any insecure default
 is still in place (dev-login enabled, default session secret, missing encryption
 key, SQLite, localhost CORS…). It exits and logs exactly what to fix rather than
