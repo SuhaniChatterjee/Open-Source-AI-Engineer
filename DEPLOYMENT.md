@@ -8,7 +8,7 @@ Frontend on **Vercel**, API + worker + Postgres + Redis on **Render**, vectors o
 
 | | |
 |---|---|
-| **API + worker + Postgres + Redis** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SuhaniChatterjee/Open-Source-AI-Engineer) — reads [`render.yaml`](render.yaml) and creates everything; you fill in the secrets it prompts for. |
+| **API + Postgres** (free, no card) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SuhaniChatterjee/Open-Source-AI-Engineer) — reads [`render.yaml`](render.yaml) and creates everything; you fill in the secrets it prompts for. |
 | **Frontend** | [Import on Vercel →](https://vercel.com/new) — pick this repo, set **Root Directory = `apps/web`**. |
 | **Vectors** | [Qdrant Cloud free cluster →](https://cloud.qdrant.io) |
 | **OAuth App** | [Create on GitHub →](https://github.com/settings/developers) |
@@ -69,8 +69,8 @@ Vercel auto-deploys on every push to `main` and builds a preview per PR.
 ## 3. Backend → Render (Blueprint)
 
 1. <https://dashboard.render.com/blueprints> → **New Blueprint Instance** → pick this repo.
-   Render reads [`render.yaml`](render.yaml) and creates: **osae-api** (web),
-   **osae-worker** (Celery), **osae-postgres**, **osae-redis**.
+   Render reads [`render.yaml`](render.yaml) and creates **osae-api** (web) and
+   **osae-postgres** — both free, **no card required**.
 2. Fill in the secrets it prompts for (everything marked `sync: false`):
 
 | Key | Value |
@@ -86,9 +86,12 @@ Vercel auto-deploys on every push to `main` and builds a preview per PR.
 3. Deploy. Migrations run automatically on boot (`alembic upgrade head`).
 
 **Free-tier notes**
-- Render has **no free worker tier**. To stay strictly free, delete the
-  `osae-worker` service and set `TASK_BACKEND=inline` on the API — jobs then run
-  in the web process (fine for low traffic, slower under load).
+- The blueprint is **entirely free and asks for no card**. Background jobs run
+  in the web process (`TASK_BACKEND=inline`) because Render has no free worker
+  tier — and declaring any paid service makes Render demand payment details
+  before it will deploy the blueprint at all.
+- To scale onto a real Celery worker later (paid), uncomment the worker + Redis
+  block at the bottom of [`render.yaml`](render.yaml) and set `TASK_BACKEND=celery`.
 - The free web service **sleeps after inactivity**; the first request takes ~50s.
 - Free Postgres expires after 90 days — back up or upgrade before then.
 

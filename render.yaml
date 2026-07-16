@@ -1,6 +1,9 @@
-# Render Blueprint — API + Celery worker + Postgres + Redis.
-# Connect this repo in the Render dashboard (New > Blueprint) and Render will
-# create these services and auto-deploy on every push to main.
+# Render Blueprint — API + Postgres. 100% free tier, no card required.
+#
+# Background jobs run in-process (TASK_BACKEND=inline). Render has no free
+# worker tier, and declaring a paid service makes Render demand payment details
+# before you can deploy the blueprint at all — so the default here stays free.
+# To scale out later, see "Adding the Celery worker" at the bottom of this file.
 #
 # Values marked `sync: false` are secrets you set in the Render dashboard —
 # they are intentionally NOT stored in this repo. See DEPLOYMENT.md.
@@ -11,7 +14,7 @@ services:
     name: osae-api
     runtime: docker
     plan: free
-    region: frankfurt
+    region: frankfurt # co-located with the Qdrant cluster
     branch: main
     autoDeploy: true
     dockerfilePath: ./apps/api/Dockerfile
@@ -35,15 +38,9 @@ services:
         fromDatabase:
           name: osae-postgres
           property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: osae-redis
-          property: connectionString
+      # Jobs run in the web process — no Redis/worker needed on the free tier.
       - key: TASK_BACKEND
-        value: celery
-      - key: CELERY_TASK_ALWAYS_EAGER
-        value: "false"
+        value: inline
       # Your Vercel URL, e.g. https://open-source-ai-engineer.vercel.app
       - key: FRONTEND_URL
         sync: false
@@ -54,6 +51,14 @@ services:
         sync: false
       - key: GITHUB_CLIENT_SECRET
         sync: false
+      # Managed Qdrant (free tier) — required for vectors to survive redeploys
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      # Optional: raises GitHub search/issue limits from 60/hr to 5000/hr
+      - key: GITHUB_TOKEN
+        sync: false
       # Optional: GitHub App (webhooks + installation tokens)
       - key: GITHUB_WEBHOOK_SECRET
         sync: false
@@ -63,78 +68,45 @@ services:
         sync: false
       - key: GITHUB_APP_PRIVATE_KEY
         sync: false
-      # Managed Qdrant (free tier) — required for vectors to survive redeploys
-      - key: QDRANT_URL
-        sync: false
-      - key: QDRANT_API_KEY
-        sync: false
-      # Raise the GitHub search/issues rate limit (60/hr -> 5000/hr)
-      - key: GITHUB_TOKEN
-        sync: false
-
-  # ---------------- Background worker ----------------
-  - type: worker
-    name: osae-worker
-    runtime: docker
-    plan: starter # Render has no free worker tier; see DEPLOYMENT.md for the
-    region: frankfurt # inline alternative if you want to stay strictly free.
-    branch: main
-    autoDeploy: true
-    dockerfilePath: ./apps/api/Dockerfile
-    dockerContext: ./apps/api
-    dockerCommand: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
-    envVars:
-      - key: ENVIRONMENT
-        value: production
-      - key: ALLOW_DEV_LOGIN
-        value: "false"
-      - key: SESSION_SECRET
-        fromService:
-          type: web
-          name: osae-api
-          envVarKey: SESSION_SECRET
-      - key: ENCRYPTION_KEY
-        sync: false
-      - key: SESSION_COOKIE_SECURE
-        value: "true"
-      - key: DATABASE_URL
-        fromDatabase:
-          name: osae-postgres
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: osae-redis
-          property: connectionString
-      - key: TASK_BACKEND
-        value: celery
-      - key: CELERY_TASK_ALWAYS_EAGER
-        value: "false"
-      - key: FRONTEND_URL
-        sync: false
-      - key: CORS_ORIGINS
-        sync: false
-      - key: GITHUB_CLIENT_ID
-        sync: false
-      - key: GITHUB_CLIENT_SECRET
-        sync: false
-      - key: QDRANT_URL
-        sync: false
-      - key: QDRANT_API_KEY
-        sync: false
-      - key: GITHUB_TOKEN
-        sync: false
-
-  # ---------------- Redis (Celery broker) ----------------
-  - type: redis
-    name: osae-redis
-    plan: free
-    region: frankfurt
-    maxmemoryPolicy: noeviction # never drop queued jobs
-    ipAllowList: [] # private network only
 
 databases:
   - name: osae-postgres
     plan: free
     region: frankfurt
     postgresMajorVersion: "16"
+# ---------------------------------------------------------------------------
+# Adding the Celery worker (paid — requires a card on Render)
+#
+# Indexing runs in the web process on the free tier, which is fine at low
+# traffic. To move it onto a dedicated worker, add a Redis instance and a
+# worker service, then flip the API's TASK_BACKEND to "celery":
+#
+# services:
+#   - type: redis
+#     name: osae-redis
+#     plan: free
+#     region: frankfurt
+#     maxmemoryPolicy: noeviction
+#     ipAllowList: []
+#
+#   - type: worker
+#     name: osae-worker
+#     runtime: docker
+#     plan: starter            # <- paid
+#     region: frankfurt
+#     branch: main
+#     autoDeploy: true
+#     dockerfilePath: ./apps/api/Dockerfile
+#     dockerContext: ./apps/api
+#     dockerCommand: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
+#     envVars:                 # same env as the API, plus:
+#       - key: TASK_BACKEND
+#         value: celery
+#       - key: CELERY_TASK_ALWAYS_EAGER
+#         value: "false"
+#       - key: REDIS_URL
+#         fromService:
+#           type: redis
+#           name: osae-redis
+#           property: connectionString
+# ---------------------------------------------------------------------------
