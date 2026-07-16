@@ -19,6 +19,7 @@ from app.api.routes import (
     repos,
 )
 from app.core.config import settings
+from app.core.startup_checks import verify_production
 from app.db.session import init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +27,8 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Refuse to boot with dev defaults on a public deployment.
+    verify_production(settings)
     init_db()
     yield
 

@@ -35,7 +35,11 @@ class VectorStore:
         # 1. Prefer a running Qdrant server (shared across processes — this is
         #    what a Celery worker + API should use in production).
         try:
-            client = QdrantClient(url=settings.qdrant_url, timeout=5)
+            client = QdrantClient(
+                url=settings.qdrant_url,
+                api_key=settings.qdrant_api_key,  # Qdrant Cloud requires this
+                timeout=5,
+            )
             client.get_collections()  # connectivity probe
             return client, "qdrant-server"
         except Exception as exc:  # pragma: no cover - env dependent

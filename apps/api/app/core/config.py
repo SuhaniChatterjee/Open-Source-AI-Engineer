@@ -9,7 +9,11 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+#: The shipped placeholder — refused in production (see verify_production).
+DEFAULT_SESSION_SECRET = "dev-insecure-session-secret-change-me"
 
 
 class Settings(BaseSettings):
@@ -26,6 +30,26 @@ class Settings(BaseSettings):
     # --- Postgres ---
     database_url: str = "postgresql+psycopg://osae:osae@localhost:5432/osae"
 
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _split_origins(cls, v):
+        # Allow a plain comma-separated env var (hosting dashboards can't do JSON).
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_db_url(cls, v):
+        # Managed Postgres (Render/Heroku/Neon) hands out `postgres://…`, which
+        # SQLAlchemy 2 rejects. Normalize to the psycopg driver URL.
+        if isinstance(v, str):
+            if v.startswith("postgres://"):
+                return v.replace("postgres://", "postgresql+psycopg://", 1)
+            if v.startswith("postgresql://"):
+                return v.replace("postgresql://", "postgresql+psycopg://", 1)
+        return v
+
     # --- Redis / background jobs ---
     redis_url: str = "redis://localhost:6379/0"
     # How background jobs run: "inline" (FastAPI BackgroundTasks — zero-config,
@@ -41,10 +65,14 @@ class Settings(BaseSettings):
     # --- Auth / sessions ---
     frontend_url: str = "http://localhost:3000"
     # Signs session cookies. OVERRIDE in production.
-    session_secret: str = "dev-insecure-session-secret-change-me"
+    session_secret: str = DEFAULT_SESSION_SECRET
     session_cookie_name: str = "osae_session"
     session_max_age_seconds: int = 60 * 60 * 24 * 14  # 14 days
     session_cookie_secure: bool = False  # True behind HTTPS in production
+    # "lax" works when the frontend and API share a site. A split deployment
+    # (Vercel frontend + Render API) is cross-site, so the cookie must be
+    # "none" + Secure or the browser silently drops it on every API call.
+    session_cookie_samesite: str = "lax"
     # Fernet key (base64, 32 bytes). If blank, one is derived from session_secret
     # for local dev. OVERRIDE with a real key in production.
     encryption_key: str | None = None
@@ -74,6 +102,7 @@ class Settings(BaseSettings):
     # -> in-memory (ephemeral, last resort). Set qdrant_path to "" to disable
     # the embedded fallback.
     qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str | None = None  # required by Qdrant Cloud
     qdrant_path: str = "qdrant_data"
     qdrant_collection_prefix: str = "osae_repo_"
 

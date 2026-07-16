@@ -91,6 +91,17 @@ OPENAI_API_KEY=sk-...
 or point `LLM_PROVIDER=ollama` at a local Ollama instance. With a real provider
 the chat returns fully synthesized answers instead of the extractive mock.
 
+## Deployment
+
+Frontend on Vercel, API + worker + Postgres + Redis on Render, vectors on Qdrant
+Cloud — all GitHub-connected, so **every push to `main` auto-deploys**. Step-by-step
+guide: **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+
+The app **refuses to boot** with `ENVIRONMENT=production` if any insecure default
+is still in place (dev-login enabled, default session secret, missing encryption
+key, SQLite, localhost CORS…). It exits and logs exactly what to fix rather than
+silently serving an open door.
+
 ## Background jobs
 
 Indexing, contribution drafting, and publishing run off the request path. Two

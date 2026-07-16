@@ -1,0 +1,140 @@
+# Render Blueprint — API + Celery worker + Postgres + Redis.
+# Connect this repo in the Render dashboard (New > Blueprint) and Render will
+# create these services and auto-deploy on every push to main.
+#
+# Values marked `sync: false` are secrets you set in the Render dashboard —
+# they are intentionally NOT stored in this repo. See DEPLOYMENT.md.
+
+services:
+  # ---------------- API ----------------
+  - type: web
+    name: osae-api
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: true
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      # Fail-closed gate requires all of the following (see startup_checks.py).
+      - key: ALLOW_DEV_LOGIN
+        value: "false"
+      - key: SESSION_SECRET
+        generateValue: true # Render generates a strong random value
+      - key: ENCRYPTION_KEY
+        sync: false # Fernet key — generate and paste (see DEPLOYMENT.md)
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: SESSION_COOKIE_SAMESITE
+        value: none # frontend (Vercel) and API (Render) are cross-site
+      - key: DATABASE_URL
+        fromDatabase:
+          name: osae-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: osae-redis
+          property: connectionString
+      - key: TASK_BACKEND
+        value: celery
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "false"
+      # Your Vercel URL, e.g. https://open-source-ai-engineer.vercel.app
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      # GitHub OAuth App (the only way to sign in once dev-login is off)
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      # Optional: GitHub App (webhooks + installation tokens)
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_SLUG
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false
+      # Managed Qdrant (free tier) — required for vectors to survive redeploys
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      # Raise the GitHub search/issues rate limit (60/hr -> 5000/hr)
+      - key: GITHUB_TOKEN
+        sync: false
+
+  # ---------------- Background worker ----------------
+  - type: worker
+    name: osae-worker
+    runtime: docker
+    plan: starter # Render has no free worker tier; see DEPLOYMENT.md for the
+    region: oregon # inline alternative if you want to stay strictly free.
+    branch: main
+    autoDeploy: true
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    dockerCommand: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: ALLOW_DEV_LOGIN
+        value: "false"
+      - key: SESSION_SECRET
+        fromService:
+          type: web
+          name: osae-api
+          envVarKey: SESSION_SECRET
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: osae-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: osae-redis
+          property: connectionString
+      - key: TASK_BACKEND
+        value: celery
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "false"
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+
+  # ---------------- Redis (Celery broker) ----------------
+  - type: redis
+    name: osae-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction # never drop queued jobs
+    ipAllowList: [] # private network only
+
+databases:
+  - name: osae-postgres
+    plan: free
+    region: oregon
+    postgresMajorVersion: "16"

@@ -36,7 +36,8 @@ def _set_session_cookie(response: Response, user_id: str) -> None:
         value=sign_session(user_id),
         max_age=settings.session_max_age_seconds,
         httponly=True,
-        samesite="lax",
+        # "none" is required when the frontend and API are on different sites.
+        samesite=settings.session_cookie_samesite,  # type: ignore[arg-type]
         secure=settings.session_cookie_secure,
         path="/",
     )
