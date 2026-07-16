@@ -10,8 +10,13 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import PersonalizationProfile, User
-from app.schemas import OpportunityOut, PreferencesOut, PreferencesUpdate
-from app.services import discovery_service
+from app.schemas import (
+    InsightsOut,
+    OpportunityOut,
+    PreferencesOut,
+    PreferencesUpdate,
+)
+from app.services import discovery_service, personalization_service
 from app.services.github_service import GitHubError
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
@@ -54,13 +59,31 @@ def update_preferences(
     return _prefs_out(profile)
 
 
+@router.get("/insights", response_model=InsightsOut)
+def insights(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """What the personalization engine has learned from this user's activity."""
+    signals = personalization_service.compute_signals(db, user)
+    prefs = discovery_service.profile_values(_profile(db, user))
+    return InsightsOut(
+        languages=[{"name": n, "weight": w} for n, w in signals.languages],
+        labels=[{"name": n, "weight": w} for n, w in signals.labels],
+        topics=[{"name": n, "weight": w} for n, w in signals.topics],
+        stats=signals.stats,
+        suggestions=personalization_service.suggestions(signals, prefs),
+        has_history=signals.has_history,
+    )
+
+
 @router.get("/opportunities", response_model=list[OpportunityOut])
 def opportunities(
     user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     profile = _profile(db, user)
+    signals = personalization_service.compute_signals(db, user)
     try:
-        found = discovery_service.find_opportunities(profile)
+        found = discovery_service.find_opportunities(profile, signals)
     except GitHubError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return [asdict(o) for o in found]

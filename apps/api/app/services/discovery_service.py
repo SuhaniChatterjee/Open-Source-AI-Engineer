@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from app.models import PersonalizationProfile
 from app.services import github_service
+from app.services.personalization_service import Signals
 
 # Labels we search for when the user hasn't picked any — the canonical
 # "come contribute here" signals.
@@ -55,21 +56,26 @@ def profile_values(profile: PersonalizationProfile | None) -> dict:
     }
 
 
-def build_queries(values: dict) -> list[str]:
+def build_queries(values: dict, signals: Signals | None = None) -> list[str]:
     """One query per label (OR semantics via separate searches), each scoped by
-    languages + free-text topics. Capped to keep API usage sane."""
+    languages + free-text topics. When the user's explicit preferences are
+    sparse, the personalization engine fills them from learned affinities so
+    discovery works from day one and sharpens with use."""
+    languages = values["languages"] or (signals.top_languages(3) if signals else [])
     labels = values["labels"] or DEFAULT_LABELS
+    topics = values["topics"] or (signals.top_topics(3) if signals else [])
+
     base_parts = ["is:issue", "is:open", "archived:false", "no:assignee"]
-    for lang in values["languages"][:4]:
+    for lang in languages[:4]:
         base_parts.append(f"language:{lang}")
     base = " ".join(base_parts)
-    topics = " ".join(values["topics"][:4]).strip()
+    topics_str = " ".join(topics[:4]).strip()
 
     queries: list[str] = []
     for label in labels[:3]:
         q = f'{base} label:"{label}"'
-        if topics:
-            q += f" {topics}"
+        if topics_str:
+            q += f" {topics_str}"
         queries.append(q)
     return queries
 
@@ -83,10 +89,19 @@ def _repo_from_item(item: dict) -> tuple[str, str]:
     return full, repo_html
 
 
-def score_opportunity(item: dict, values: dict) -> tuple[int, list[str]]:
+def score_opportunity(
+    item: dict, values: dict, signals: Signals | None = None
+) -> tuple[int, list[str]]:
     labels = {l["name"].lower() for l in item.get("labels", [])}
     reasons: list[str] = []
     score = 55
+
+    # Personalization boost: reward labels the user has a track record with.
+    if signals:
+        matched = labels & signals.top_labels(6)
+        if matched:
+            score += 12
+            reasons.append(f"matches your history with '{sorted(matched)[0]}'")
 
     if labels & _EASY_LABELS:
         score += 22
@@ -121,9 +136,9 @@ def score_opportunity(item: dict, values: dict) -> tuple[int, list[str]]:
     return max(0, min(100, score)), reasons
 
 
-def _to_opportunity(item: dict, values: dict) -> Opportunity:
+def _to_opportunity(item: dict, values: dict, signals: Signals | None = None) -> Opportunity:
     full, repo_html = _repo_from_item(item)
-    score, reasons = score_opportunity(item, values)
+    score, reasons = score_opportunity(item, values, signals)
     body = item.get("body") or ""
     return Opportunity(
         repo_full_name=full,
@@ -142,15 +157,17 @@ def _to_opportunity(item: dict, values: dict) -> Opportunity:
 
 
 def find_opportunities(
-    profile: PersonalizationProfile | None, limit: int = 30
+    profile: PersonalizationProfile | None,
+    signals: Signals | None = None,
+    limit: int = 30,
 ) -> list[Opportunity]:
     values = profile_values(profile)
     seen: dict[tuple[str, int], Opportunity] = {}
-    for query in build_queries(values):
+    for query in build_queries(values, signals):
         for item in github_service.search_issues(query, per_page=20):
             if "pull_request" in item:
                 continue
-            opp = _to_opportunity(item, values)
+            opp = _to_opportunity(item, values, signals)
             key = (opp.repo_full_name, opp.number)
             # Keep the higher-scoring instance if a dupe appears across queries.
             if key not in seen or opp.fit_score > seen[key].fit_score:

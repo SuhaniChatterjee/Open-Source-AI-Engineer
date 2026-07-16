@@ -154,6 +154,20 @@ export interface Preferences {
   labels: string[];
 }
 
+export interface Affinity {
+  name: string;
+  weight: number;
+}
+
+export interface Insights {
+  languages: Affinity[];
+  labels: Affinity[];
+  topics: Affinity[];
+  stats: Record<string, number>;
+  suggestions: { languages: string[]; labels: string[] };
+  has_history: boolean;
+}
+
 export interface Opportunity {
   repo_full_name: string;
   repo_url: string;

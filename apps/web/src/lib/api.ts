@@ -6,6 +6,7 @@ import type {
   GitHubAppInfo,
   GitHubInstallation,
   IndexJob,
+  Insights,
   Issue,
   IssueDetail,
   Opportunity,
@@ -71,6 +72,7 @@ export const api = {
       body: JSON.stringify(prefs),
     }),
   getOpportunities: () => req<Opportunity[]>("/discovery/opportunities"),
+  getInsights: () => req<Insights>("/discovery/insights"),
 
   // --- github app ---
   githubApp: () => req<GitHubAppInfo>("/github/app"),

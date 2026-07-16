@@ -64,6 +64,20 @@ class PreferencesUpdate(BaseModel):
     labels: list[str] = Field(default_factory=list)
 
 
+class AffinityOut(BaseModel):
+    name: str
+    weight: float
+
+
+class InsightsOut(BaseModel):
+    languages: list[AffinityOut] = []
+    labels: list[AffinityOut] = []
+    topics: list[AffinityOut] = []
+    stats: dict = {}
+    suggestions: dict = {}
+    has_history: bool = False
+
+
 class OpportunityOut(BaseModel):
     repo_full_name: str
     repo_url: str

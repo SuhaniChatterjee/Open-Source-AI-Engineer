@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import type { Opportunity, Preferences } from "@/lib/types";
+import type { Insights, Opportunity, Preferences } from "@/lib/types";
 
 const LEVELS = ["beginner", "intermediate", "advanced"];
 
@@ -16,6 +16,37 @@ function parse(value: string): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function Affinities({
+  title,
+  items,
+}: {
+  title: string;
+  items: { name: string; weight: number }[];
+}) {
+  return (
+    <div>
+      <div className="text-xs text-muted mb-1.5">{title}</div>
+      {items.length === 0 ? (
+        <span className="text-xs text-muted">—</span>
+      ) : (
+        <div className="space-y-1">
+          {items.slice(0, 5).map((a) => (
+            <div key={a.name} className="flex items-center gap-2">
+              <span className="text-xs w-24 truncate">{a.name}</span>
+              <div className="h-1.5 bg-panel2 rounded flex-1 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-accent to-accent2"
+                  style={{ width: `${Math.max(8, a.weight * 100)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FitBadge({ score }: { score: number }) {
@@ -42,6 +73,7 @@ export default function DiscoveryPage() {
   const [topics, setTopics] = useState("");
   const [labels, setLabels] = useState("");
   const [opps, setOpps] = useState<Opportunity[]>([]);
+  const [insights, setInsights] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(false);
   const [indexing, setIndexing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +90,14 @@ export default function DiscoveryPage() {
       setTopics(csv(p.topics));
       setLabels(csv(p.labels));
     });
+    api.getInsights().then(setInsights).catch(() => {});
   }, [user]);
+
+  function applySuggestions() {
+    if (!insights) return;
+    setLangs(csv([...parse(langs), ...insights.suggestions.languages]));
+    setLabels(csv([...parse(labels), ...insights.suggestions.labels]));
+  }
 
   async function search(save: boolean) {
     setLoading(true);
@@ -77,6 +116,7 @@ export default function DiscoveryPage() {
         setPrefs(next);
       }
       setOpps(await api.getOpportunities());
+      api.getInsights().then(setInsights).catch(() => {});
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -164,6 +204,53 @@ export default function DiscoveryPage() {
           Leave labels empty to default to “good first issue” and “help wanted”.
         </p>
       </div>
+
+      {insights?.has_history && (
+        <div className="card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm uppercase tracking-wide text-muted">
+              What we&apos;ve learned about you
+            </h2>
+            <span className="badge bg-accent/10 text-accent">personalized</span>
+          </div>
+          <div className="flex flex-wrap gap-4 text-xs text-muted">
+            {Object.entries(insights.stats).map(([k, v]) => (
+              <span key={k}>
+                <span className="text-gray-200 font-semibold">{v}</span>{" "}
+                {k.replace(/_/g, " ")}
+              </span>
+            ))}
+          </div>
+          <div className="grid md:grid-cols-3 gap-3">
+            <Affinities title="Languages" items={insights.languages} />
+            <Affinities title="Labels" items={insights.labels} />
+            <Affinities title="Topics" items={insights.topics} />
+          </div>
+          {(insights.suggestions.languages.length > 0 ||
+            insights.suggestions.labels.length > 0) && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted">Suggested from your history:</span>
+              {[...insights.suggestions.languages, ...insights.suggestions.labels].map(
+                (s) => (
+                  <span key={s} className="badge bg-panel2 text-gray-300">
+                    {s}
+                  </span>
+                )
+              )}
+              <button
+                onClick={applySuggestions}
+                className="text-accent hover:underline ml-1"
+              >
+                add to filters
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-muted">
+            Discovery uses these automatically — issues matching your track record
+            are boosted, and searches fall back to what you engage with.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="card p-3 border-red-500/40 text-red-300 text-sm">{error}</div>
