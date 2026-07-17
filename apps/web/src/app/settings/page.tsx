@@ -305,8 +305,35 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {msg && <div className="text-green-400 text-sm">{msg}</div>}
-      {err && <div className="text-red-300 text-sm">{err}</div>}
+      {/* Pinned so a failed save is never invisible below the fold — a silent
+          error made the Save buttons look dead. */}
+      {(msg || err) && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md">
+          <div
+            className={`card p-4 shadow-xl ${
+              err ? "border-red-500/50" : "border-green-500/50"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <span className={err ? "text-red-300" : "text-green-400"}>
+                {err ? "✕" : "✓"}
+              </span>
+              <p className={`text-sm flex-1 ${err ? "text-red-300" : "text-green-400"}`}>
+                {err ?? msg}
+              </p>
+              <button
+                onClick={() => {
+                  setErr(null);
+                  setMsg(null);
+                }}
+                className="text-muted hover:text-gray-200 text-xs"
+              >
+                dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

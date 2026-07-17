@@ -36,11 +36,30 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: "include", // send/receive the session cookie
   });
   if (!res.ok) {
-    let detail = res.statusText;
+    let detail: string = res.statusText;
     try {
-      detail = (await res.json()).detail ?? detail;
+      const body = await res.json();
+      const d = body?.detail;
+      if (typeof d === "string") {
+        detail = d;
+      } else if (Array.isArray(d)) {
+        // FastAPI 422: detail is [{loc, msg, type}, ...]. Assigning the array
+        // straight to the message renders as "[object Object]".
+        detail = d
+          .map((e) => {
+            const field = Array.isArray(e?.loc) ? e.loc[e.loc.length - 1] : "";
+            return field ? `${field}: ${e.msg}` : e.msg;
+          })
+          .filter(Boolean)
+          .join("; ");
+      } else if (d) {
+        detail = JSON.stringify(d);
+      }
     } catch {
-      /* ignore */
+      /* non-JSON error body — keep statusText */
+    }
+    if (res.status === 422) {
+      detail = `${detail} (the API may be running an older version than this page)`;
     }
     throw new ApiError(res.status, detail);
   }
